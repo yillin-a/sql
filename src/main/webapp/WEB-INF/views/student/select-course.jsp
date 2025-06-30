@@ -130,11 +130,8 @@
             <a href="${pageContext.request.contextPath}/student/select-course" class="nav-item active">
                 <i class="fas fa-plus-circle"></i> 选课
             </a>
-            <a href="${pageContext.request.contextPath}/student/schedule" class="nav-item">
-                <i class="fas fa-calendar-alt"></i> 我的课表
-            </a>
             <a href="${pageContext.request.contextPath}/student-score-analysis/" class="nav-item">
-                <i class="fas fa-chart-bar"></i> 成绩分析
+                <i class="fas fa-user-edit"></i> 个人信息修改
             </a>
         </div>
     </div>
@@ -321,9 +318,6 @@
         <div class="col-12 text-center">
             <a href="${pageContext.request.contextPath}/student/dashboard" class="btn btn-secondary">
                 <i class="fas fa-arrow-left"></i> 返回首页
-            </a>
-            <a href="${pageContext.request.contextPath}/student/schedule" class="btn btn-info ms-2">
-                <i class="fas fa-calendar-alt"></i> 查看课表
             </a>
         </div>
     </div>

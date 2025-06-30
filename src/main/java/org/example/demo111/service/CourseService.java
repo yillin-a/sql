@@ -1,11 +1,11 @@
 package org.example.demo111.service;
 
-import org.example.demo111.dao.CourseDAO;
-import org.example.demo111.model.Course;
-
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
+
+import org.example.demo111.dao.CourseDAO;
+import org.example.demo111.model.Course;
 
 /**
  * 课程服务类
@@ -186,5 +186,53 @@ public class CourseService {
 
     public Course findByTeachingClassId(Integer teachingClassId) throws SQLException {
         return courseDAO.findByTeachingClassId(teachingClassId);
+    }
+
+    /**
+     * 根据教师ID获取该教师教授的所有课程
+     */
+    public List<Course> getCoursesByTeacherId(Integer teacherId) throws SQLException {
+        return courseDAO.findCoursesByTeacherId(teacherId);
+    }
+
+    /**
+     * 根据教师ID和课程名称搜索课程（教师只能搜索自己教授的课程）
+     */
+    public List<Course> searchCoursesByNameAndTeacherId(String name, Integer teacherId) throws SQLException {
+        if (name == null || name.trim().isEmpty()) {
+            return getCoursesByTeacherId(teacherId);
+        }
+        return courseDAO.findByNameAndTeacherId(name.trim(), teacherId);
+    }
+
+    /**
+     * 根据教师ID和课程类型搜索课程（教师只能搜索自己教授的课程）
+     */
+    public List<Course> searchCoursesByTypeAndTeacherId(String type, Integer teacherId) throws SQLException {
+        if (type == null || type.trim().isEmpty()) {
+            return getCoursesByTeacherId(teacherId);
+        }
+        return courseDAO.findByTypeAndTeacherId(type.trim(), teacherId);
+    }
+
+    /**
+     * 根据教师ID获取该教师的课程平均成绩详细统计
+     */
+    public List<Map<String, Object>> getCourseAverageScoreDetailsByTeacherId(Integer teacherId) throws SQLException {
+        return courseDAO.getCourseAverageScoreDetailsByTeacherId(teacherId);
+    }
+
+    /**
+     * 根据教师ID和课程名称搜索课程平均成绩
+     */
+    public List<Map<String, Object>> getCourseAverageScoreByTeacherIdAndCourseName(Integer teacherId, String courseName) throws SQLException {
+        return courseDAO.getCourseAverageScoreByTeacherIdAndCourseName(teacherId, courseName);
+    }
+    
+    /**
+     * 获取所有教学班（用于成绩录入）
+     */
+    public List<Map<String, Object>> getAllTeachingClassesForScoreEntry() throws SQLException {
+        return courseDAO.getAllTeachingClassesForScoreEntry();
     }
 } 

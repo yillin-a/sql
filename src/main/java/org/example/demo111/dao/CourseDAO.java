@@ -102,6 +102,58 @@ public class CourseDAO {
         
         return courses;
     }
+
+    /**
+     * 根据教师ID和课程名称模糊查询课程（教师只能搜索自己教授的课程）
+     */
+    public List<Course> findByNameAndTeacherId(String name, Integer teacherId) throws SQLException {
+        List<Course> courses = new ArrayList<>();
+        String sql = "SELECT DISTINCT c.* FROM huyl_course10 c " +
+                     "JOIN huyl_tclass10 tc ON c.hyl_cno10 = tc.hyl_cno10 " +
+                     "WHERE tc.hyl_tno10 = ? AND c.hyl_cname10 ILIKE ? " +
+                     "ORDER BY c.hyl_cno10";
+        
+        try (Connection conn = DatabaseUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
+            pstmt.setInt(1, teacherId);
+            pstmt.setString(2, "%" + name + "%");
+            ResultSet rs = pstmt.executeQuery();
+            
+            while (rs.next()) {
+                Course course = mapResultSetToCourse(rs);
+                courses.add(course);
+            }
+        }
+        
+        return courses;
+    }
+
+    /**
+     * 根据教师ID和课程类型查询课程（教师只能搜索自己教授的课程）
+     */
+    public List<Course> findByTypeAndTeacherId(String type, Integer teacherId) throws SQLException {
+        List<Course> courses = new ArrayList<>();
+        String sql = "SELECT DISTINCT c.* FROM huyl_course10 c " +
+                     "JOIN huyl_tclass10 tc ON c.hyl_cno10 = tc.hyl_cno10 " +
+                     "WHERE tc.hyl_tno10 = ? AND c.hyl_ctype10 = ? " +
+                     "ORDER BY c.hyl_cno10";
+        
+        try (Connection conn = DatabaseUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
+            pstmt.setInt(1, teacherId);
+            pstmt.setString(2, type);
+            ResultSet rs = pstmt.executeQuery();
+            
+            while (rs.next()) {
+                Course course = mapResultSetToCourse(rs);
+                courses.add(course);
+            }
+        }
+        
+        return courses;
+    }
     
     /**
      * 添加课程
@@ -650,11 +702,11 @@ public class CourseDAO {
      */
     public List<Map<String, Object>> findTeachingClassesByTeacherId(Integer teacherId) throws SQLException {
         List<Map<String, Object>> teachingClasses = new ArrayList<>();
-        String sql = "SELECT tc.hyl_tcno10, tc.hyl_term10, c.hyl_cno10, c.hyl_cname10 " +
+        String sql = "SELECT tc.hyl_tcno10, tc.hyl_tcyear10, tc.hyl_tcterm10, c.hyl_cno10, c.hyl_cname10 " +
                      "FROM huyl_tclass10 tc " +
                      "JOIN huyl_course10 c ON tc.hyl_cno10 = c.hyl_cno10 " +
                      "WHERE tc.hyl_tno10 = ? " +
-                     "ORDER BY tc.hyl_term10 DESC, c.hyl_cname10";
+                     "ORDER BY tc.hyl_tcyear10 DESC, tc.hyl_tcterm10 DESC, c.hyl_cname10";
 
         try (Connection conn = DatabaseUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -665,7 +717,8 @@ public class CourseDAO {
             while (rs.next()) {
                 Map<String, Object> tClass = new HashMap<>();
                 tClass.put("hyl_tcno10", rs.getInt("hyl_tcno10"));
-                tClass.put("hyl_term10", rs.getString("hyl_term10"));
+                tClass.put("hyl_tcyear10", rs.getInt("hyl_tcyear10"));
+                tClass.put("hyl_tcterm10", rs.getInt("hyl_tcterm10"));
                 tClass.put("hyl_cno10", rs.getInt("hyl_cno10"));
                 tClass.put("hyl_cname10", rs.getString("hyl_cname10"));
                 teachingClasses.add(tClass);
@@ -695,4 +748,213 @@ public class CourseDAO {
         
         return null;
     }
+
+    /**
+     * 根据教师ID获取该教师教授的所有课程
+     * @param teacherId 教师工号
+     * @return 课程列表
+     */
+    public List<Course> findCoursesByTeacherId(Integer teacherId) throws SQLException {
+        List<Course> courses = new ArrayList<>();
+        String sql = "SELECT DISTINCT c.* FROM huyl_course10 c " +
+                     "JOIN huyl_tclass10 tc ON c.hyl_cno10 = tc.hyl_cno10 " +
+                     "WHERE tc.hyl_tno10 = ? " +
+                     "ORDER BY c.hyl_cno10";
+        
+        try (Connection conn = DatabaseUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
+            pstmt.setInt(1, teacherId);
+            ResultSet rs = pstmt.executeQuery();
+            
+            while (rs.next()) {
+                Course course = mapResultSetToCourse(rs);
+                courses.add(course);
+            }
+        }
+        
+        return courses;
+    }
+
+    /**
+     * 根据教师ID获取该教师的课程平均成绩详细统计
+     * @param teacherId 教师工号
+     * @return 课程平均成绩统计列表
+     */
+    public List<Map<String, Object>> getCourseAverageScoreDetailsByTeacherId(Integer teacherId) throws SQLException {
+        List<Map<String, Object>> scoreStats = new ArrayList<>();
+        String sql = "SELECT tc.hyl_tcno10 as teaching_class_id, " +
+                     "tc.hyl_tcyear10 as year, " +
+                     "tc.hyl_tcterm10 as term, " +
+                     "c.hyl_cno10 as course_id, " +
+                     "c.hyl_cname10 as course_name, " +
+                     "c.hyl_ctype10 as course_type, " +
+                     "c.hyl_ccredit10 as credit, " +
+                     "c.hyl_chour10 as hour, " +
+                     "c.hyl_ctest10 as test_type, " +
+                     "t.hyl_tname10 as teacher_name, " +
+                     "COUNT(e.hyl_sno10) as student_count, " +
+                     "ROUND(AVG(e.hyl_escore10), 2) as avg_score, " +
+                     "MAX(e.hyl_escore10) as max_score, " +
+                     "MIN(e.hyl_escore10) as min_score, " +
+                     "COUNT(CASE WHEN e.hyl_escore10 >= 90 THEN 1 END) as excellent_count, " +
+                     "COUNT(CASE WHEN e.hyl_escore10 >= 80 AND e.hyl_escore10 < 90 THEN 1 END) as good_count, " +
+                     "COUNT(CASE WHEN e.hyl_escore10 >= 70 AND e.hyl_escore10 < 80 THEN 1 END) as average_count, " +
+                     "COUNT(CASE WHEN e.hyl_escore10 >= 60 AND e.hyl_escore10 < 70 THEN 1 END) as pass_count, " +
+                     "COUNT(CASE WHEN e.hyl_escore10 < 60 THEN 1 END) as fail_count " +
+                     "FROM huyl_tclass10 tc " +
+                     "JOIN huyl_course10 c ON tc.hyl_cno10 = c.hyl_cno10 " +
+                     "JOIN huyl_teacher10 t ON tc.hyl_tno10 = t.hyl_tno10 " +
+                     "LEFT JOIN huyl_enroll10 e ON tc.hyl_tcno10 = e.hyl_tcno10 AND e.hyl_escore10 IS NOT NULL " +
+                     "WHERE tc.hyl_tno10 = ? " +
+                     "GROUP BY tc.hyl_tcno10, tc.hyl_tcyear10, tc.hyl_tcterm10, c.hyl_cno10, c.hyl_cname10, c.hyl_ctype10, " +
+                     "c.hyl_ccredit10, c.hyl_chour10, c.hyl_ctest10, t.hyl_tname10 " +
+                     "ORDER BY tc.hyl_tcyear10 DESC, tc.hyl_tcterm10 DESC, avg_score DESC";
+        
+        try (Connection conn = DatabaseUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
+            pstmt.setInt(1, teacherId);
+            ResultSet rs = pstmt.executeQuery();
+
+            System.out.println("in byteacherid " + teacherId);
+            
+            while (rs.next()) {
+                Map<String, Object> stat = new HashMap<>();
+                stat.put("teachingClassId", rs.getInt("teaching_class_id"));
+                stat.put("year", rs.getInt("year"));
+                stat.put("term", rs.getInt("term"));
+                stat.put("courseId", rs.getInt("course_id"));
+                stat.put("courseName", rs.getString("course_name"));
+                stat.put("courseType", rs.getString("course_type"));
+                stat.put("credit", rs.getBigDecimal("credit"));
+                stat.put("hour", rs.getInt("hour"));
+                stat.put("testType", rs.getString("test_type"));
+                stat.put("teacherName", rs.getString("teacher_name"));
+                stat.put("studentCount", rs.getInt("student_count"));
+                stat.put("avgScore", rs.getDouble("avg_score"));
+                stat.put("maxScore", rs.getInt("max_score"));
+                stat.put("minScore", rs.getInt("min_score"));
+                stat.put("excellentCount", rs.getInt("excellent_count"));
+                stat.put("goodCount", rs.getInt("good_count"));
+                stat.put("averageCount", rs.getInt("average_count"));
+                stat.put("passCount", rs.getInt("pass_count"));
+                stat.put("failCount", rs.getInt("fail_count"));
+                scoreStats.add(stat);
+            }
+        }
+        
+        return scoreStats;
+    }
+
+    /**
+     * 根据教师ID和课程名称搜索课程平均成绩
+     * @param teacherId 教师工号
+     * @param courseName 课程名称
+     * @return 课程平均成绩统计列表
+     */
+    public List<Map<String, Object>> getCourseAverageScoreByTeacherIdAndCourseName(Integer teacherId, String courseName) throws SQLException {
+        List<Map<String, Object>> scoreStats = new ArrayList<>();
+        String sql = "SELECT tc.hyl_tcno10 as teaching_class_id, " +
+                     "tc.hyl_tcyear10 as year, " +
+                     "tc.hyl_tcterm10 as term, " +
+                     "c.hyl_cno10 as course_id, " +
+                     "c.hyl_cname10 as course_name, " +
+                     "c.hyl_ctype10 as course_type, " +
+                     "c.hyl_ccredit10 as credit, " +
+                     "c.hyl_chour10 as hour, " +
+                     "c.hyl_ctest10 as test_type, " +
+                     "t.hyl_tname10 as teacher_name, " +
+                     "COUNT(e.hyl_sno10) as student_count, " +
+                     "ROUND(AVG(e.hyl_escore10), 2) as avg_score, " +
+                     "MAX(e.hyl_escore10) as max_score, " +
+                     "MIN(e.hyl_escore10) as min_score, " +
+                     "COUNT(CASE WHEN e.hyl_escore10 >= 90 THEN 1 END) as excellent_count, " +
+                     "COUNT(CASE WHEN e.hyl_escore10 >= 80 AND e.hyl_escore10 < 90 THEN 1 END) as good_count, " +
+                     "COUNT(CASE WHEN e.hyl_escore10 >= 70 AND e.hyl_escore10 < 80 THEN 1 END) as average_count, " +
+                     "COUNT(CASE WHEN e.hyl_escore10 >= 60 AND e.hyl_escore10 < 70 THEN 1 END) as pass_count, " +
+                     "COUNT(CASE WHEN e.hyl_escore10 < 60 THEN 1 END) as fail_count " +
+                     "FROM huyl_tclass10 tc " +
+                     "JOIN huyl_course10 c ON tc.hyl_cno10 = c.hyl_cno10 " +
+                     "JOIN huyl_teacher10 t ON tc.hyl_tno10 = t.hyl_tno10 " +
+                     "LEFT JOIN huyl_enroll10 e ON tc.hyl_tcno10 = e.hyl_tcno10 AND e.hyl_escore10 IS NOT NULL " +
+                     "WHERE tc.hyl_tno10 = ? AND c.hyl_cname10 ILIKE ? " +
+                     "GROUP BY tc.hyl_tcno10, tc.hyl_tcyear10, tc.hyl_tcterm10, c.hyl_cno10, c.hyl_cname10, c.hyl_ctype10, " +
+                     "c.hyl_ccredit10, c.hyl_chour10, c.hyl_ctest10, t.hyl_tname10 " +
+                     "ORDER BY tc.hyl_tcyear10 DESC, tc.hyl_tcterm10 DESC, avg_score DESC";
+        
+        try (Connection conn = DatabaseUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
+            pstmt.setInt(1, teacherId);
+            pstmt.setString(2, "%" + courseName + "%");
+            ResultSet rs = pstmt.executeQuery();
+
+            System.out.println("Queryed");
+            System.out.println(rs);
+            
+            while (rs.next()) {
+                Map<String, Object> stat = new HashMap<>();
+                stat.put("teachingClassId", rs.getInt("teaching_class_id"));
+                stat.put("year", rs.getInt("year"));
+                stat.put("term", rs.getInt("term"));
+                stat.put("courseId", rs.getInt("course_id"));
+                stat.put("courseName", rs.getString("course_name"));
+                stat.put("courseType", rs.getString("course_type"));
+                stat.put("credit", rs.getBigDecimal("credit"));
+                stat.put("hour", rs.getInt("hour"));
+                stat.put("testType", rs.getString("test_type"));
+                stat.put("teacherName", rs.getString("teacher_name"));
+                stat.put("studentCount", rs.getInt("student_count"));
+                stat.put("avgScore", rs.getDouble("avg_score"));
+                stat.put("maxScore", rs.getInt("max_score"));
+                stat.put("minScore", rs.getInt("min_score"));
+                stat.put("excellentCount", rs.getInt("excellent_count"));
+                stat.put("goodCount", rs.getInt("good_count"));
+                stat.put("averageCount", rs.getInt("average_count"));
+                stat.put("passCount", rs.getInt("pass_count"));
+                stat.put("failCount", rs.getInt("fail_count"));
+                scoreStats.add(stat);
+            }
+        }
+        
+        return scoreStats;
+    }
+    
+    /**
+     * 获取所有教学班（用于成绩录入）
+     */
+    public List<Map<String, Object>> getAllTeachingClassesForScoreEntry() throws SQLException {
+        List<Map<String, Object>> teachingClasses = new ArrayList<>();
+        String sql = "SELECT tc.hyl_tcno10, tc.hyl_tcyear10, tc.hyl_tcterm10, " +
+                     "c.hyl_cno10, c.hyl_cname10, c.hyl_ctype10, t.hyl_tname10, " +
+                     "COUNT(e.hyl_sno10) as student_count " +
+                     "FROM huyl_tclass10 tc " +
+                     "JOIN huyl_course10 c ON tc.hyl_cno10 = c.hyl_cno10 " +
+                     "JOIN huyl_teacher10 t ON tc.hyl_tno10 = t.hyl_tno10 " +
+                     "LEFT JOIN huyl_enroll10 e ON tc.hyl_tcno10 = e.hyl_tcno10 " +
+                     "GROUP BY tc.hyl_tcno10, tc.hyl_tcyear10, tc.hyl_tcterm10, " +
+                     "c.hyl_cno10, c.hyl_cname10, c.hyl_ctype10, t.hyl_tname10 " +
+                     "ORDER BY tc.hyl_tcyear10 DESC, tc.hyl_tcterm10 DESC, c.hyl_cname10";
+
+        try (Connection conn = DatabaseUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql);
+             ResultSet rs = pstmt.executeQuery()) {
+
+            while (rs.next()) {
+                Map<String, Object> tClass = new HashMap<>();
+                tClass.put("hyl_tcno10", rs.getInt("hyl_tcno10"));
+                tClass.put("hyl_tcyear10", rs.getInt("hyl_tcyear10"));
+                tClass.put("hyl_tcterm10", rs.getInt("hyl_tcterm10"));
+                tClass.put("hyl_cno10", rs.getInt("hyl_cno10"));
+                tClass.put("hyl_cname10", rs.getString("hyl_cname10"));
+                tClass.put("hyl_ctype10", rs.getString("hyl_ctype10"));
+                tClass.put("hyl_tname10", rs.getString("hyl_tname10"));
+                tClass.put("student_count", rs.getInt("student_count"));
+                teachingClasses.add(tClass);
+            }
+        }
+        return teachingClasses;
+    }
+
 } 

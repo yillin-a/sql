@@ -90,11 +90,6 @@
             background-color: #f8f9fa;
         }
         
-        /* 排名样式 */
-        .rank-1 { background-color: #fff3cd !important; }
-        .rank-2 { background-color: #f8f9fa !important; }
-        .rank-3 { background-color: #e2e3e5 !important; }
-        
         /* 成绩样式 */
         .score-excellent {
             color: #28a745;
@@ -249,7 +244,6 @@
                 <table>
                     <thead>
                         <tr>
-                            <th>排名</th>
                             <th>教师姓名</th>
                             <th>课程数量</th>
                             <th>教学班数量</th>
@@ -262,31 +256,7 @@
                     </thead>
                     <tbody>
                         <c:forEach var="stat" items="${teacherStats}" varStatus="status">
-                            <c:choose>
-                                <c:when test="${status.index == 0}">
-                                    <c:set var="rowClass" value="rank-1"/>
-                                </c:when>
-                                <c:when test="${status.index == 1}">
-                                    <c:set var="rowClass" value="rank-2"/>
-                                </c:when>
-                                <c:when test="${status.index == 2}">
-                                    <c:set var="rowClass" value="rank-3"/>
-                                </c:when>
-                                <c:otherwise>
-                                    <c:set var="rowClass" value=""/>
-                                </c:otherwise>
-                            </c:choose>
-                            <tr class="${rowClass}">
-                                <td>
-                                    <strong style="color: #667eea;">
-                                        <c:choose>
-                                            <c:when test="${status.index == 0}">🥇</c:when>
-                                            <c:when test="${status.index == 1}">🥈</c:when>
-                                            <c:when test="${status.index == 2}">🥉</c:when>
-                                            <c:otherwise>${status.index + 1}</c:otherwise>
-                                        </c:choose>
-                                    </strong>
-                                </td>
+                            <tr>
                                 <td>
                                     <strong style="color: #333;">
                                         ${stat.teacherName}

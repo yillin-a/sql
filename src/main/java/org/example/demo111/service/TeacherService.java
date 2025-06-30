@@ -1,10 +1,10 @@
 package org.example.demo111.service;
 
-import org.example.demo111.dao.TeacherDAO;
-import org.example.demo111.model.Teacher;
-
 import java.sql.SQLException;
 import java.util.List;
+
+import org.example.demo111.dao.TeacherDAO;
+import org.example.demo111.model.Teacher;
 
 /**
  * 教师业务逻辑服务类
@@ -112,6 +112,17 @@ public class TeacherService {
             return teacherDAO.findActiveTeachers();
         } catch (SQLException e) {
             throw new RuntimeException("获取在职教师失败", e);
+        }
+    }
+    
+    /**
+     * 更新教师个人资料（仅邮箱和电话）
+     */
+    public boolean updateTeacherProfile(Integer teacherId, String email, String phone) {
+        try {
+            return teacherDAO.updateTeacherProfile(teacherId, email, phone);
+        } catch (SQLException e) {
+            throw new RuntimeException("更新教师个人资料失败", e);
         }
     }
     

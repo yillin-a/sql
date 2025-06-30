@@ -1,22 +1,21 @@
 package org.example.demo111.controller;
 
+import java.io.IOException;
+import java.util.List;
+import java.util.Map;
+
+import org.example.demo111.model.Student;
+import org.example.demo111.model.User;
+import org.example.demo111.service.CourseService;
+import org.example.demo111.service.EnrollmentService;
+import org.example.demo111.service.StudentService;
+
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
-import org.example.demo111.model.User;
-import org.example.demo111.model.Student;
-import org.example.demo111.service.StudentService;
-import org.example.demo111.service.EnrollmentService;
-import org.example.demo111.service.CourseService;
-
-import java.io.IOException;
-import java.util.List;
-import java.util.Map;
-import java.util.HashMap;
-import java.util.ArrayList;
 
 @WebServlet("/student/dashboard")
 public class StudentDashboardController extends HttpServlet {
@@ -102,11 +101,11 @@ public class StudentDashboardController extends HttpServlet {
                     else if (score >= 70) averageCount++;
                     else if (score >= 60) passCount++;
                     else failCount++;
-                }
-                
-                // 累计学分
-                if (enrollment.getCourseCredit() != null) {
-                    totalCredits += enrollment.getCourseCredit().doubleValue();
+                    
+                    // 只有及格的课程才能获得学分
+                    if (score >= 60 && enrollment.getCourseCredit() != null) {
+                        totalCredits += enrollment.getCourseCredit().doubleValue();
+                    }
                 }
             }
             

@@ -1,11 +1,11 @@
 package org.example.demo111.service;
 
-import org.example.demo111.dao.StudentDAO;
-import org.example.demo111.model.Student;
-
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
+
+import org.example.demo111.dao.StudentDAO;
+import org.example.demo111.model.Student;
 
 /**
  * 学生业务逻辑服务类
@@ -338,6 +338,33 @@ public class StudentService {
             return studentDAO.getStudentRanking(studentId);
         } catch (SQLException e) {
             throw new RuntimeException("获取学生排名信息失败", e);
+        }
+    }
+    
+    /**
+     * 更新学生个人信息（仅限邮箱、电话、籍贯）
+     * @param studentId 学生ID
+     * @param email 邮箱
+     * @param phone 电话
+     * @param place 籍贯
+     * @return 是否更新成功
+     */
+    public boolean updateStudentProfile(Integer studentId, String email, String phone, String place) {
+        try {
+            return studentDAO.updateStudentProfile(studentId, email, phone, place);
+        } catch (SQLException e) {
+            throw new RuntimeException("更新学生个人信息失败", e);
+        }
+    }
+    
+    /**
+     * 手动更新所有学生的GPA
+     */
+    public void updateAllStudentsGPA() {
+        try {
+            studentDAO.updateAllStudentsGPA();
+        } catch (SQLException e) {
+            throw new RuntimeException("更新学生GPA失败", e);
         }
     }
 } 

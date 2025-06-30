@@ -437,11 +437,8 @@
                 <a href="${pageContext.request.contextPath}/student/select-course" class="nav-item">
                     <i class="fas fa-plus-circle"></i> 选课
                 </a>
-                <a href="${pageContext.request.contextPath}/student/schedule" class="nav-item">
-                    <i class="fas fa-calendar-alt"></i> 我的课表
-                </a>
                 <a href="${pageContext.request.contextPath}/student-score-analysis/" class="nav-item">
-                    <i class="fas fa-chart-bar"></i> 成绩分析
+                    <i class="fas fa-user-edit"></i> 个人信息修改
                 </a>
                 <a href="${pageContext.request.contextPath}/password/change" class="nav-item">
                     <i class="fas fa-key"></i> 修改密码
@@ -713,7 +710,7 @@
                                 <th>教学班</th>
                                 <th>成绩</th>
                                 <th>GPA</th>
-                                <th>学分</th>
+                                <th>获得学分</th>
                                 <th>状态</th>
                                 <th>选课时间</th>
                             </tr>
@@ -754,7 +751,18 @@
                                     <td>
                                         <c:choose>
                                             <c:when test="${enrollment.courseCredit != null}">
-                                                <fmt:formatNumber value="${enrollment.courseCredit}" pattern="#.#"/>
+                                                <c:choose>
+                                                    <c:when test="${enrollment.hylEscore10 != null && enrollment.hylEscore10 >= 60}">
+                                                        <span class="score-good">
+                                                            <fmt:formatNumber value="${enrollment.courseCredit}" pattern="#.#"/>
+                                                        </span>
+                                                    </c:when>
+                                                    <c:otherwise>
+                                                        <span style="color: #999;">
+                                                            0.0 / <fmt:formatNumber value="${enrollment.courseCredit}" pattern="#.#"/>
+                                                        </span>
+                                                    </c:otherwise>
+                                                </c:choose>
                                             </c:when>
                                             <c:otherwise>
                                                 <span style="color: #999;">-</span>

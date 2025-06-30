@@ -219,9 +219,13 @@
         </c:if>
 
         <div class="nav-buttons">
-            <a href="${pageContext.request.contextPath}/course/add" class="btn btn-success">➕ 添加课程</a>
-            <a href="${pageContext.request.contextPath}/course/stats" class="btn btn-info">📊 课程统计</a>
-            <a href="${pageContext.request.contextPath}/course/score-stats" class="btn btn-warning">📈 成绩统计</a>
+            <!-- 管理员功能 -->
+            <c:if test="${userType == 'admin'}">
+                <a href="${pageContext.request.contextPath}/course/add" class="btn btn-success">➕ 添加课程</a>
+                <a href="${pageContext.request.contextPath}/course/stats" class="btn btn-info">📊 课程统计</a>
+                <a href="${pageContext.request.contextPath}/course/score-stats" class="btn btn-warning">📈 成绩统计</a>
+                <a href="${pageContext.request.contextPath}/course/average-scores" class="btn btn-info">📊 平均成绩统计</a>
+            </c:if>
             <a href="${pageContext.request.contextPath}/" class="btn btn-primary">🏠 返回首页</a>
         </div>
 
@@ -341,8 +345,11 @@
                                 </td>
                                 <td>
                                     <a href="${pageContext.request.contextPath}/course/view?id=${course.hylCno10}" class="btn btn-info">👁️ 详情</a>
-                                    <a href="${pageContext.request.contextPath}/course/edit?id=${course.hylCno10}" class="btn btn-warning">✏️ 编辑</a>
-                                    <a href="javascript:void(0)" onclick="deleteCourse(${course.hylCno10}, '${course.hylCname10}')" class="btn btn-danger">🗑️ 删除</a>
+                                    <!-- 管理员专用功能 -->
+                                    <c:if test="${userType == 'admin'}">
+                                        <a href="${pageContext.request.contextPath}/course/edit?id=${course.hylCno10}" class="btn btn-warning">✏️ 编辑</a>
+                                        <a href="javascript:void(0)" onclick="deleteCourse(${course.hylCno10}, '${course.hylCname10}')" class="btn btn-danger">🗑️ 删除</a>
+                                    </c:if>
                                 </td>
                             </tr>
                         </c:forEach>
@@ -352,7 +359,10 @@
         </c:choose>
 
         <div style="text-align: center; margin-top: 30px;">
-            <a href="${pageContext.request.contextPath}/course/add" class="btn btn-success">➕ 添加课程</a>
+            <!-- 管理员功能 -->
+            <c:if test="${userType == 'admin'}">
+                <a href="${pageContext.request.contextPath}/course/add" class="btn btn-success">➕ 添加课程</a>
+            </c:if>
             <a href="${pageContext.request.contextPath}/" class="btn btn-primary">🏠 返回首页</a>
         </div>
     </div>

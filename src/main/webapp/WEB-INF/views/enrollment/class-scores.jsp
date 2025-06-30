@@ -150,7 +150,7 @@
         </c:choose>
 
         <div class="page-actions">
-            <a href="${pageContext.request.contextPath}/teacher/my-courses" class="btn btn-secondary">返回我的课程</a>
+            <a href="${pageContext.request.contextPath}/teacher/dashboard" class="btn btn-secondary">返回仪表板</a>
         </div>
     </div>
 </body>

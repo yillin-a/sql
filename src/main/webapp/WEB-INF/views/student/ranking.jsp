@@ -169,7 +169,19 @@
                 </div>
                 <div class="stat-item">
                     <div class="stat-number">
-                        <fmt:formatNumber value="${rankings.size() > 0 ? rankings.stream().mapToDouble(r -> r.avgScore).average().orElse(0) : 0}" pattern="#.##"/>
+                        <c:set var="totalScore" value="0"/>
+                        <c:set var="studentCount" value="${rankings.size()}"/>
+                        <c:forEach var="ranking" items="${rankings}">
+                            <c:set var="totalScore" value="${totalScore + ranking.avgScore}"/>
+                        </c:forEach>
+                        <c:choose>
+                            <c:when test="${studentCount > 0}">
+                                <fmt:formatNumber value="${totalScore / studentCount}" pattern="#.##"/>
+                            </c:when>
+                            <c:otherwise>
+                                <fmt:formatNumber value="0" pattern="#.##"/>
+                            </c:otherwise>
+                        </c:choose>
                     </div>
                     <div class="stat-label">平均成绩</div>
                 </div>
@@ -193,15 +205,8 @@
             </thead>
             <tbody>
                 <c:forEach var="ranking" items="${rankings}" varStatus="status">
-                    <tr class="${status.index < 3 ? 'rank-' + (status.index + 1) : ''}">
-                        <td>
-                            <c:choose>
-                                <c:when test="${status.index == 0}">🥇</c:when>
-                                <c:when test="${status.index == 1}">🥈</c:when>
-                                <c:when test="${status.index == 2}">🥉</c:when>
-                                <c:otherwise>${status.index + 1}</c:otherwise>
-                            </c:choose>
-                        </td>
+                    <tr class="<c:if test='${status.index == 0}'>rank-1</c:if><c:if test='${status.index == 1}'>rank-2</c:if><c:if test='${status.index == 2}'>rank-3</c:if>">
+                        <td>${status.index + 1}</td>
                         <td>${ranking.studentId}</td>
                         <td>${ranking.studentName}</td>
                         <td>${ranking.majorName}</td>

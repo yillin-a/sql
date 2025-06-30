@@ -136,12 +136,24 @@
 </head>
 <body>
     <div class="container">
-        <h2>✏️ 编辑选课记录</h2>
+        <c:choose>
+            <c:when test="${userType == 'teacher'}">
+                <h2>📝 录入学生成绩</h2>
+            </c:when>
+            <c:otherwise>
+                <h2>✏️ 编辑选课记录</h2>
+            </c:otherwise>
+        </c:choose>
 
         <div class="nav-buttons">
             <a href="${pageContext.request.contextPath}/enrollment/list" class="btn btn-primary">📚 选课记录</a>
-            <a href="${pageContext.request.contextPath}/student/list" class="btn btn-warning">👥 学生管理</a>
-            <a href="${pageContext.request.contextPath}/" class="btn btn-success">🏠 返回首页</a>
+            <c:if test="${userType == 'admin'}">
+                <a href="${pageContext.request.contextPath}/student/list" class="btn btn-warning">👥 学生管理</a>
+                <a href="${pageContext.request.contextPath}/admin/home" class="btn btn-success">🏠 管理员首页</a>
+            </c:if>
+            <c:if test="${userType == 'teacher'}">
+                <a href="${pageContext.request.contextPath}/teacher/dashboard" class="btn btn-success">🏠 教师首页</a>
+            </c:if>
         </div>
 
         <c:if test="${not empty error}">
@@ -188,19 +200,35 @@
                 </div>
                 <div class="form-group">
                     <label for="hylStatus10">状态</label>
-                    <select id="hylStatus10" name="hylStatus10">
-                        <option value="">请选择状态</option>
-                        <option value="在读" <c:if test="${not empty enrollment and enrollment.hylStatus10 == '在读'}">selected</c:if>>在读</option>
-                        <option value="退学" <c:if test="${not empty enrollment and enrollment.hylStatus10 == '退学'}">selected</c:if>>退学</option>
-                        <option value="休学" <c:if test="${not empty enrollment and enrollment.hylStatus10 == '休学'}">selected</c:if>>休学</option>
-                        <option value="毕业" <c:if test="${not empty enrollment and enrollment.hylStatus10 == '毕业'}">selected</c:if>>毕业</option>
-                    </select>
-                    <div class="help-text">选择学生的当前状态</div>
+                    <c:choose>
+                        <c:when test="${userType == 'teacher'}">
+                            <input type="text" id="hylStatus10" name="hylStatus10" 
+                                   value="<c:out value='${enrollment.hylStatus10}'/>" 
+                                   class="readonly-field" readonly>
+                            <div class="help-text">教师无法修改选课状态</div>
+                        </c:when>
+                        <c:otherwise>
+                            <select id="hylStatus10" name="hylStatus10">
+                                <option value="">请选择状态</option>
+                                <option value="正常" <c:if test="${not empty enrollment and enrollment.hylStatus10 == '正常'}">selected</c:if>>正常</option>
+                                <option value="退课" <c:if test="${not empty enrollment and enrollment.hylStatus10 == '退课'}">selected</c:if>>退课</option>
+                                <option value="重修" <c:if test="${not empty enrollment and enrollment.hylStatus10 == '重修'}">selected</c:if>>重修</option>
+                            </select>
+                            <div class="help-text">选择学生的当前状态</div>
+                        </c:otherwise>
+                    </c:choose>
                 </div>
             </div>
 
             <div class="form-actions">
-                <button type="submit" class="btn btn-success">💾 保存修改</button>
+                <c:choose>
+                    <c:when test="${userType == 'teacher'}">
+                        <button type="submit" class="btn btn-success">📝 保存成绩</button>
+                    </c:when>
+                    <c:otherwise>
+                        <button type="submit" class="btn btn-success">💾 保存修改</button>
+                    </c:otherwise>
+                </c:choose>
                 <a href="${pageContext.request.contextPath}/enrollment/view?studentId=${enrollment.hylSno10}&teachingClassId=${enrollment.hylTcno10}" class="btn btn-primary">👁️ 查看详情</a>
                 <a href="${pageContext.request.contextPath}/enrollment/list" class="btn btn-warning">📋 返回列表</a>
             </div>

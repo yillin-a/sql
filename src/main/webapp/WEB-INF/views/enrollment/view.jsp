@@ -100,21 +100,17 @@
             font-weight: 600;
             text-transform: uppercase;
         }
-        .status-在读 {
+        .status-正常 {
             background-color: #d4edda;
             color: #155724;
         }
-        .status-退学 {
+        .status-退课 {
             background-color: #f8d7da;
             color: #721c24;
         }
-        .status-休学 {
+        .status-重修 {
             background-color: #fff3cd;
             color: #856404;
-        }
-        .status-毕业 {
-            background-color: #cce5ff;
-            color: #004085;
         }
         .score-display {
             font-size: 24px;

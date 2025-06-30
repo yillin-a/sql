@@ -212,14 +212,9 @@
             <p>管理教师信息，查看教师任课安排</p>
         </a>
         
-        <a href="${pageContext.request.contextPath}/enrollment/course-average" class="nav-card">
+        <a href="${pageContext.request.contextPath}/course/average-scores" class="nav-card">
             <h3>📊 课程平均成绩</h3>
             <p>查看各课程平均成绩统计和分析</p>
-        </a>
-        
-        <a href="${pageContext.request.contextPath}/course/average-scores" class="nav-card">
-            <h3>📈 课程成绩统计</h3>
-            <p>管理员课程平均成绩详细统计</p>
         </a>
         
         <a href="${pageContext.request.contextPath}/course/teacher-stats" class="nav-card">

@@ -240,9 +240,9 @@
                             <tr class="${rowClass}">
                                 <td>
                                     <c:choose>
-                                        <c:when test="${status.index == 0}">🥇</c:when>
-                                        <c:when test="${status.index == 1}">🥈</c:when>
-                                        <c:when test="${status.index == 2}">🥉</c:when>
+                                        <c:when test="${status.index == 0}">1</c:when>
+                                        <c:when test="${status.index == 1}">2</c:when>
+                                        <c:when test="${status.index == 2}">3</c:when>
                                         <c:otherwise>${status.index + 1}</c:otherwise>
                                     </c:choose>
                                 </td>

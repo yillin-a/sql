@@ -1,11 +1,14 @@
 package org.example.demo111.dao;
 
-import org.example.demo111.model.Teacher;
-import org.example.demo111.util.DatabaseUtil;
-
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+
+import org.example.demo111.model.Teacher;
+import org.example.demo111.util.DatabaseUtil;
 
 /**
  * 教师数据访问对象
@@ -240,6 +243,23 @@ public class TeacherDAO {
         }
         
         return teachers;
+    }
+    
+    /**
+     * 更新教师个人资料（仅邮箱和电话）
+     */
+    public boolean updateTeacherProfile(Integer teacherId, String email, String phone) throws SQLException {
+        String sql = "UPDATE huyl_teacher10 SET hyl_temail10 = ?, hyl_tphone10 = ? WHERE hyl_tno10 = ?";
+        try (Connection conn = DatabaseUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
+            pstmt.setString(1, email);
+            pstmt.setString(2, phone);
+            pstmt.setInt(3, teacherId);
+            
+            int affectedRows = pstmt.executeUpdate();
+            return affectedRows > 0;
+        }
     }
     
     /**

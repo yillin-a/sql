@@ -154,19 +154,19 @@
                     <label for="hylCtest10">考核方式 <span class="required">*</span></label>
                     <select id="hylCtest10" name="hylCtest10" required>
                         <option value="">请选择考核方式</option>
-                        <option value="考试" ${course.hylCtest10 == '考试' ? 'selected' : ''}>考试</option>
-                        <option value="考查" ${course.hylCtest10 == '考查' ? 'selected' : ''}>考查</option>
+                        <option value="考试" <c:if test="${course.hylCtest10 == '考试'}">selected</c:if>>考试</option>
+                        <option value="考查" <c:if test="${course.hylCtest10 == '考查'}">selected</c:if>>考查</option>
                     </select>
                 </div>
                 <div class="form-group">
                     <label for="hylCtype10">课程类型 <span class="required">*</span></label>
                     <select id="hylCtype10" name="hylCtype10" required>
                         <option value="">请选择课程类型</option>
-                        <option value="必修课" ${course.hylCtype10 == '必修课' ? 'selected' : ''}>必修课</option>
-                        <option value="限选课" ${course.hylCtype10 == '限选课' ? 'selected' : ''}>限选课</option>
-                        <option value="通识课" ${course.hylCtype10 == '通识课' ? 'selected' : ''}>通识课</option>
-                        <option value="实践课" ${course.hylCtype10 == '实践课' ? 'selected' : ''}>实践课</option>
-                        <option value="体育课" ${course.hylCtype10 == '体育课' ? 'selected' : ''}>体育课</option>
+                        <option value="必修课" <c:if test="${course.hylCtype10 == '必修课'}">selected</c:if>>必修课</option>
+                        <option value="限选课" <c:if test="${course.hylCtype10 == '限选课'}">selected</c:if>>限选课</option>
+                        <option value="通识课" <c:if test="${course.hylCtype10 == '通识课'}">selected</c:if>>通识课</option>
+                        <option value="实践课" <c:if test="${course.hylCtype10 == '实践课'}">selected</c:if>>实践课</option>
+                        <option value="体育课" <c:if test="${course.hylCtype10 == '体育课'}">selected</c:if>>体育课</option>
                     </select>
                 </div>
             </div>

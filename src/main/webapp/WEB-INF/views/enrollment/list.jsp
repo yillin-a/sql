@@ -190,11 +190,17 @@
         <h2>📚 选课记录管理</h2>
 
         <div class="nav-buttons">
-            <a href="${pageContext.request.contextPath}/enrollment/add" class="btn btn-success">➕ 添加选课</a>
-            <a href="${pageContext.request.contextPath}/enrollment/course-average" class="btn btn-info">📊 课程平均成绩</a>
-            <a href="${pageContext.request.contextPath}/enrollment/analysis" class="btn btn-warning">📈 成绩分析</a>
-            <a href="${pageContext.request.contextPath}/student/list" class="btn btn-primary">👥 学生管理</a>
-            <a href="${pageContext.request.contextPath}/" class="btn btn-warning">🏠 返回首页</a>
+            <c:if test="${userType == 'admin'}">
+                <a href="${pageContext.request.contextPath}/enrollment/add" class="btn btn-success">➕ 添加选课</a>
+                <a href="${pageContext.request.contextPath}/course/average-scores" class="btn btn-info">📊 课程平均成绩</a>
+                <a href="${pageContext.request.contextPath}/score/analysis" class="btn btn-warning">📈 成绩分析</a>
+                <a href="${pageContext.request.contextPath}/student/list" class="btn btn-primary">👥 学生管理</a>
+                <a href="${pageContext.request.contextPath}/admin/home" class="btn btn-warning">🏠 管理员首页</a>
+            </c:if>
+            <c:if test="${userType == 'teacher'}">
+                <a href="${pageContext.request.contextPath}/course/average-scores" class="btn btn-info">📊 课程平均成绩</a>
+                <a href="${pageContext.request.contextPath}/teacher/dashboard" class="btn btn-warning">🏠 教师首页</a>
+            </c:if>
         </div>
 
         <div class="search-box">
@@ -209,8 +215,13 @@
             <c:when test="${empty enrollments}">
                 <div class="no-data">
                     <h3>📭 暂无选课记录</h3>
-                    <p>当前没有找到任何选课记录，请先添加选课信息。</p>
-                    <a href="${pageContext.request.contextPath}/enrollment/add" class="btn btn-primary">➕ 添加选课</a>
+                    <c:if test="${userType == 'admin'}">
+                        <p>当前没有找到任何选课记录，请先添加选课信息。</p>
+                        <a href="${pageContext.request.contextPath}/enrollment/add" class="btn btn-primary">➕ 添加选课</a>
+                    </c:if>
+                    <c:if test="${userType == 'teacher'}">
+                        <p>您当前没有任何教学班的选课记录。</p>
+                    </c:if>
                 </div>
             </c:when>
             <c:otherwise>
@@ -329,7 +340,7 @@
                                 </td>
                                 <td>
                                     <c:choose>
-                                        <c:when test="${enrollment.hylStatus10 == '在读'}">
+                                        <c:when test="${enrollment.hylStatus10 == '正常'}">
                                             <span class="status-badge status-active">
                                                 <c:out value="${enrollment.hylStatus10}" default="未知"/>
                                             </span>
@@ -345,11 +356,17 @@
                                     <div class="action-buttons">
                                         <a href="${pageContext.request.contextPath}/enrollment/student?studentId=${enrollment.hylSno10}" 
                                            class="btn btn-info">👁️ 查看</a>
-                                        <a href="${pageContext.request.contextPath}/enrollment/edit?studentId=${enrollment.hylSno10}&teachingClassId=${enrollment.hylTcno10}" 
-                                           class="btn btn-warning">✏️ 编辑</a>
-                                        <a href="javascript:void(0)" 
-                                           onclick="if(confirm('确定要删除这条选课记录吗？')) window.location.href='${pageContext.request.contextPath}/enrollment/delete?studentId=${enrollment.hylSno10}&teachingClassId=${enrollment.hylTcno10}'" 
-                                           class="btn btn-danger">🗑️ 删除</a>
+                                        <c:if test="${userType == 'admin'}">
+                                            <a href="${pageContext.request.contextPath}/enrollment/edit?studentId=${enrollment.hylSno10}&teachingClassId=${enrollment.hylTcno10}" 
+                                               class="btn btn-warning">✏️ 编辑</a>
+                                            <a href="javascript:void(0)" 
+                                               onclick="if(confirm('确定要删除这条选课记录吗？')) window.location.href='${pageContext.request.contextPath}/enrollment/delete?studentId=${enrollment.hylSno10}&teachingClassId=${enrollment.hylTcno10}'" 
+                                               class="btn btn-danger">🗑️ 删除</a>
+                                        </c:if>
+                                        <c:if test="${userType == 'teacher'}">
+                                            <a href="${pageContext.request.contextPath}/enrollment/edit?studentId=${enrollment.hylSno10}&teachingClassId=${enrollment.hylTcno10}" 
+                                               class="btn btn-warning">📝 录入成绩</a>
+                                        </c:if>
                                     </div>
                                 </td>
                             </tr>
@@ -360,8 +377,13 @@
         </c:choose>
 
         <div style="text-align: center; margin-top: 30px;">
-            <a href="${pageContext.request.contextPath}/enrollment/add" class="btn btn-success">➕ 添加选课</a>
-            <a href="${pageContext.request.contextPath}/" class="btn btn-primary">🏠 返回首页</a>
+            <c:if test="${userType == 'admin'}">
+                <a href="${pageContext.request.contextPath}/enrollment/add" class="btn btn-success">➕ 添加选课</a>
+                <a href="${pageContext.request.contextPath}/admin/home" class="btn btn-primary">🏠 管理员首页</a>
+            </c:if>
+            <c:if test="${userType == 'teacher'}">
+                <a href="${pageContext.request.contextPath}/teacher/dashboard" class="btn btn-primary">🏠 教师首页</a>
+            </c:if>
         </div>
     </div>
 </body>

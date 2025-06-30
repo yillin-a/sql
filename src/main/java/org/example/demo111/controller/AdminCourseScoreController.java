@@ -1,18 +1,19 @@
 package org.example.demo111.controller;
 
+import java.io.IOException;
+import java.sql.SQLException;
+import java.util.List;
+import java.util.Map;
+
+import org.example.demo111.service.CourseScoreStatisticsService;
+import org.example.demo111.service.CourseService;
+import org.example.demo111.service.StudentService;
+
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.example.demo111.service.CourseService;
-import org.example.demo111.service.CourseScoreStatisticsService;
-import org.example.demo111.model.Enrollment;
-
-import java.io.IOException;
-import java.sql.SQLException;
-import java.util.List;
-import java.util.Map;
 
 /**
  * 管理员课程平均成绩控制器
@@ -21,10 +22,12 @@ import java.util.Map;
 public class AdminCourseScoreController extends HttpServlet {
     private final CourseService courseService;
     private final CourseScoreStatisticsService scoreStatisticsService;
+    private final StudentService studentService;
     
     public AdminCourseScoreController() {
         this.courseService = new CourseService();
         this.scoreStatisticsService = new CourseScoreStatisticsService();
+        this.studentService = new StudentService();
     }
     
     @Override
@@ -45,6 +48,25 @@ public class AdminCourseScoreController extends HttpServlet {
                 showScoreDistribution(request, response);
             } else if ("/export".equals(pathInfo)) {
                 exportData(request, response);
+            } else if ("/update-gpa".equals(pathInfo)) {
+                updateStudentGPA(request, response);
+            } else {
+                response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            }
+        } catch (Exception e) {
+            request.setAttribute("error", e.getMessage());
+            request.getRequestDispatcher("/WEB-INF/views/error.jsp").forward(request, response);
+        }
+    }
+    
+    @Override
+    protected void doPost(HttpServletRequest request, HttpServletResponse response) 
+            throws ServletException, IOException {
+        String pathInfo = request.getPathInfo();
+        
+        try {
+            if ("/update-gpa".equals(pathInfo)) {
+                updateStudentGPA(request, response);
             } else {
                 response.sendError(HttpServletResponse.SC_NOT_FOUND);
             }
@@ -62,16 +84,16 @@ public class AdminCourseScoreController extends HttpServlet {
         // 获取总体统计
         Map<String, Object> overallStats = courseService.getCourseAverageScoreOverallStats();
         
-        // 获取课程排名
+        // 获取课程统计
         List<Map<String, Object>> topCourses = courseService.getCourseAverageScoreDetails();
         if (topCourses.size() > 10) {
-            topCourses = topCourses.subList(0, 10); // 只显示前10名
+            topCourses = topCourses.subList(0, 10);
         }
         
         // 获取教师统计
         List<Map<String, Object>> topTeachers = courseService.getCourseAverageScoreByTeacher();
         if (topTeachers.size() > 5) {
-            topTeachers = topTeachers.subList(0, 5); // 只显示前5名
+            topTeachers = topTeachers.subList(0, 5);
         }
         
         // 获取成绩分布
@@ -143,29 +165,19 @@ public class AdminCourseScoreController extends HttpServlet {
             throws ServletException, IOException, SQLException {
         List<Map<String, Object>> teacherStats = courseService.getCourseAverageScoreByTeacher();
         
-        // 计算教师排名
-        for (int i = 0; i < teacherStats.size(); i++) {
-            teacherStats.get(i).put("rank", i + 1);
-        }
-        
         request.setAttribute("teacherStats", teacherStats);
         request.getRequestDispatcher("/WEB-INF/views/admin/teacher-course-stats.jsp").forward(request, response);
     }
     
     /**
-     * 显示课程排名
+     * 显示课程统计
      */
     private void showCourseRanking(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException, SQLException {
-        List<Map<String, Object>> courseRanking = scoreStatisticsService.getCourseScoreRankingAsMap();
+        List<Map<String, Object>> courseStats = scoreStatisticsService.getCourseScoreRankingAsMap();
         
-        // 添加排名信息
-        for (int i = 0; i < courseRanking.size(); i++) {
-            courseRanking.get(i).put("rank", i + 1);
-        }
-        
-        request.setAttribute("courseRanking", courseRanking);
-        request.getRequestDispatcher("/WEB-INF/views/admin/course-ranking.jsp").forward(request, response);
+        request.setAttribute("courseStats", courseStats);
+        request.getRequestDispatcher("/WEB-INF/views/admin/course-stats.jsp").forward(request, response);
     }
     
     /**
@@ -263,6 +275,28 @@ public class AdminCourseScoreController extends HttpServlet {
             line.append(stat.get("failCount")).append("\n");
             
             response.getWriter().write(line.toString());
+        }
+    }
+
+    /**
+     * 更新所有学生的GPA
+     */
+    private void updateStudentGPA(HttpServletRequest request, HttpServletResponse response) 
+            throws ServletException, IOException {
+        try {
+            // 调用服务更新所有学生的GPA
+            studentService.updateAllStudentsGPA();
+            
+            // 设置成功消息
+            request.getSession().setAttribute("successMessage", "所有学生的GPA已成功更新！");
+            
+            // 重定向到仪表板
+            response.sendRedirect(request.getContextPath() + "/admin/course-score/dashboard");
+            
+        } catch (Exception e) {
+            // 设置错误消息
+            request.getSession().setAttribute("errorMessage", "更新学生GPA失败: " + e.getMessage());
+            response.sendRedirect(request.getContextPath() + "/admin/course-score/dashboard");
         }
     }
 } 

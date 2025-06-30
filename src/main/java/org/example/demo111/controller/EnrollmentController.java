@@ -1,18 +1,19 @@
 package org.example.demo111.controller;
 
+import java.io.IOException;
+import java.sql.SQLException;
+import java.util.List;
+
+import org.example.demo111.model.Course;
+import org.example.demo111.model.Enrollment;
+import org.example.demo111.service.CourseService;
+import org.example.demo111.service.EnrollmentService;
+
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.example.demo111.model.Enrollment;
-import org.example.demo111.service.EnrollmentService;
-import org.example.demo111.service.CourseService;
-import org.example.demo111.model.Course;
-
-import java.io.IOException;
-import java.sql.SQLException;
-import java.util.List;
 
 /**
  * 选课成绩管理控制器
@@ -88,8 +89,42 @@ public class EnrollmentController extends HttpServlet {
      */
     private void listEnrollments(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
-        List<Enrollment> enrollments = enrollmentService.getAllEnrollments();
+        // 获取当前用户信息
+        org.example.demo111.model.User currentUser = (org.example.demo111.model.User) request.getSession().getAttribute("user");
+        if (currentUser == null) {
+            response.sendRedirect(request.getContextPath() + "/login");
+            return;
+        }
+        
+        String studentName = request.getParameter("studentName");
+        String courseName = request.getParameter("courseName");
+
+        List<Enrollment> enrollments;
+        
+        // 根据用户类型进行权限控制
+        if ("admin".equals(currentUser.getUserType())) {
+            // 管理员可以查看所有选课记录
+            if ((studentName != null && !studentName.isEmpty()) || (courseName != null && !courseName.isEmpty())) {
+                enrollments = enrollmentService.searchEnrollments(studentName, courseName);
+            } else {
+                enrollments = enrollmentService.getAllEnrollments();
+            }
+        } else if ("teacher".equals(currentUser.getUserType())) {
+            // 教师只能查看自己所教授的选课记录
+            Integer teacherId = currentUser.getUserId();
+            if ((studentName != null && !studentName.isEmpty()) || (courseName != null && !courseName.isEmpty())) {
+                enrollments = enrollmentService.searchEnrollmentsByTeacherId(teacherId, studentName, courseName);
+            } else {
+                enrollments = enrollmentService.getEnrollmentsByTeacherId(teacherId);
+            }
+        } else {
+            // 其他用户类型无权访问
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "权限不足，无法访问选课记录管理页面");
+            return;
+        }
+        
         request.setAttribute("enrollments", enrollments);
+        request.setAttribute("userType", currentUser.getUserType());
         request.getRequestDispatcher("/WEB-INF/views/enrollment/list.jsp").forward(request, response);
     }
     
@@ -107,6 +142,13 @@ public class EnrollmentController extends HttpServlet {
      */
     private void showEditForm(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
+        // 获取当前用户信息
+        org.example.demo111.model.User currentUser = (org.example.demo111.model.User) request.getSession().getAttribute("user");
+        if (currentUser == null) {
+            response.sendRedirect(request.getContextPath() + "/login");
+            return;
+        }
+        
         String studentIdStr = request.getParameter("studentId");
         String teachingClassIdStr = request.getParameter("teachingClassId");
         
@@ -119,6 +161,19 @@ public class EnrollmentController extends HttpServlet {
             Integer studentId = Integer.parseInt(studentIdStr);
             Integer teachingClassId = Integer.parseInt(teachingClassIdStr);
             
+            // 权限检查
+            if ("teacher".equals(currentUser.getUserType())) {
+                // 检查教师是否有权限访问该教学班
+                if (!hasTeacherPermission(currentUser.getUserId(), teachingClassId)) {
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "您没有权限访问该教学班");
+                    return;
+                }
+            } else if (!"admin".equals(currentUser.getUserType())) {
+                // 非管理员和非教师用户无权访问
+                response.sendError(HttpServletResponse.SC_FORBIDDEN, "权限不足，无法编辑选课记录");
+                return;
+            }
+            
             Enrollment enrollment = enrollmentService.getEnrollment(studentId, teachingClassId);
             if (enrollment == null) {
                 request.setAttribute("error", "选课记录不存在");
@@ -127,6 +182,7 @@ public class EnrollmentController extends HttpServlet {
             }
             
             request.setAttribute("enrollment", enrollment);
+            request.setAttribute("userType", currentUser.getUserType());
             request.getRequestDispatcher("/WEB-INF/views/enrollment/edit.jsp").forward(request, response);
         } catch (NumberFormatException e) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "学号或教学班编号格式错误");
@@ -301,9 +357,28 @@ public class EnrollmentController extends HttpServlet {
      */
     private void updateEnrollment(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
+        // 获取当前用户信息
+        org.example.demo111.model.User currentUser = (org.example.demo111.model.User) request.getSession().getAttribute("user");
+        if (currentUser == null) {
+            response.sendRedirect(request.getContextPath() + "/login");
+            return;
+        }
+        
         try {
             Enrollment enrollment = parseEnrollmentFromRequest(request);
-//            System.out.println(enrollment);
+            
+            // 权限检查
+            if ("teacher".equals(currentUser.getUserType())) {
+                // 检查教师是否有权限访问该教学班
+                if (!hasTeacherPermission(currentUser.getUserId(), enrollment.getHylTcno10())) {
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "您没有权限修改该教学班的选课记录");
+                    return;
+                }
+            } else if (!"admin".equals(currentUser.getUserType())) {
+                // 非管理员和非教师用户无权访问
+                response.sendError(HttpServletResponse.SC_FORBIDDEN, "权限不足，无法修改选课记录");
+                return;
+            }
 
             boolean success = enrollmentService.updateEnrollment(enrollment);
 
@@ -314,12 +389,14 @@ public class EnrollmentController extends HttpServlet {
             } else {
                 request.setAttribute("error", "更新选课记录失败，请重试");
                 request.setAttribute("enrollment", enrollment); // 用于回显数据
+                request.setAttribute("userType", currentUser.getUserType());
                 request.getRequestDispatcher("/WEB-INF/views/enrollment/edit.jsp").forward(request, response);
             }
         } catch (Exception e) {
             request.setAttribute("error", "更新时发生错误: " + e.getMessage());
             Enrollment enrollment = parseEnrollmentFromRequest(request); // 再次解析以回显
             request.setAttribute("enrollment", enrollment);
+            request.setAttribute("userType", currentUser.getUserType());
             request.getRequestDispatcher("/WEB-INF/views/enrollment/edit.jsp").forward(request, response);
         }
     }
@@ -374,5 +451,18 @@ public class EnrollmentController extends HttpServlet {
         enrollment.setHylStatus10(status);
 
         return enrollment;
+    }
+    
+    /**
+     * 检查教师是否有权限访问指定教学班
+     */
+    private boolean hasTeacherPermission(Integer teacherId, Integer teachingClassId) {
+        try {
+            List<java.util.Map<String, Object>> teachingClasses = courseService.findTeachingClassesByTeacherId(teacherId);
+            return teachingClasses.stream()
+                    .anyMatch(tc -> teachingClassId.equals(tc.get("hyl_tcno10")));
+        } catch (Exception e) {
+            return false;
+        }
     }
 } 

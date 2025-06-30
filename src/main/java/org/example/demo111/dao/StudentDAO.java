@@ -1,13 +1,16 @@
 package org.example.demo111.dao;
 
-import org.example.demo111.model.Student;
-import org.example.demo111.util.DatabaseUtil;
-
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import org.example.demo111.model.Student;
+import org.example.demo111.util.DatabaseUtil;
 
 /**
  * 学生数据访问对象
@@ -175,6 +178,24 @@ public class StudentDAO {
     }
     
     /**
+     * 更新学生个人信息（仅限邮箱、电话、籍贯）
+     */
+    public boolean updateStudentProfile(Integer studentId, String email, String phone, String place) throws SQLException {
+        String sql = "UPDATE huyl_student10 SET hyl_semail10 = ?, hyl_sphone10 = ?, hyl_splace10 = ? WHERE hyl_sno10 = ?";
+        try (Connection conn = DatabaseUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
+            pstmt.setString(1, email);
+            pstmt.setString(2, phone);
+            pstmt.setString(3, place);
+            pstmt.setInt(4, studentId);
+            
+            int affectedRows = pstmt.executeUpdate();
+            return affectedRows > 0;
+        }
+    }
+    
+    /**
      * 删除学生
      */
     public boolean deleteStudent(Integer studentId) throws SQLException {
@@ -334,32 +355,6 @@ public class StudentDAO {
         }
         
         return rankings;
-    }
-    
-    /**
-     * 将ResultSet映射到Student对象
-     */
-    private Student mapResultSetToStudent(ResultSet rs) throws SQLException {
-        Student student = new Student();
-        student.setHylSno10(rs.getInt("hyl_sno10"));
-        student.setHylSage10(rs.getInt("hyl_sage10"));
-        student.setHylSname10(rs.getString("hyl_sname10"));
-        student.setHylSbirth10(rs.getDate("hyl_sbirth10"));
-        student.setHylSplace10(rs.getString("hyl_splace10"));
-        student.setHylSsex10(rs.getString("hyl_ssex10"));
-        student.setHylScreditsum10(rs.getDouble("hyl_screditsum10"));
-        student.setHylSemail10(rs.getString("hyl_semail10"));
-        student.setHylSphone10(rs.getString("hyl_sphone10"));
-        student.setHylSenrolldate10(rs.getDate("hyl_senrolldate10"));
-        student.setHylSstatus10(rs.getString("hyl_sstatus10"));
-        student.setHylSgpa10(rs.getDouble("hyl_sgpa10"));
-        student.setHylSrank10(rs.getInt("hyl_srank10"));
-        student.setHylMno10(rs.getInt("hyl_mno10"));
-        student.setHylAcno10(rs.getInt("hyl_acno10"));
-        student.setMajorName(rs.getString("major_name"));
-        student.setClassName(rs.getString("class_name"));
-        
-        return student;
     }
     
     /**
@@ -609,7 +604,7 @@ public class StudentDAO {
                      "FROM huyl_student10 " +
                      "WHERE hyl_splace10 IS NOT NULL " +
                      "GROUP BY hyl_splace10 " +
-                     "ORDER BY student_count DESC";
+                     "ORDER BY student_count DESC;";
         
         try (Connection conn = DatabaseUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql);
@@ -627,17 +622,28 @@ public class StudentDAO {
     }
     
     /**
-     * 获取生源地排名
+     * 获取生源地排名（按成绩排名）
      */
     public List<Map<String, Object>> getOriginRanking() throws SQLException {
         List<Map<String, Object>> ranking = new ArrayList<>();
-        String sql = "SELECT hyl_splace10 as origin_name, COUNT(*) as student_count, " +
-                     "AVG(s.hyl_sgpa10) as avg_gpa, " +
-                     "COUNT(CASE WHEN s.hyl_sgpa10 >= 3.0 THEN 1 END) as good_students " +
+        // 修改SQL查询，当所有学生GPA都为0时，改为按学生平均成绩排序
+        String sql = "SELECT " +
+                     "s.hyl_splace10 as origin_name, " +
+                     "COUNT(*) as student_count, " +
+                     "AVG(CASE WHEN s.hyl_sgpa10 > 0 THEN s.hyl_sgpa10 ELSE NULL END) as avg_gpa, " +
+                     "COUNT(CASE WHEN s.hyl_sgpa10 >= 3.0 THEN 1 END) as good_students, " +
+                     "AVG(CASE WHEN e.hyl_escore10 > 0 THEN e.hyl_escore10 ELSE NULL END) as avg_score " +
                      "FROM huyl_student10 s " +
-                     "WHERE hyl_splace10 IS NOT NULL " +
-                     "GROUP BY hyl_splace10 " +
-                     "ORDER BY student_count DESC, avg_gpa DESC";
+                     "LEFT JOIN huyl_enroll10 e ON s.hyl_sno10 = e.hyl_sno10 " +
+                     "WHERE s.hyl_splace10 IS NOT NULL AND s.hyl_splace10 != '' " +
+                     "GROUP BY s.hyl_splace10 " +
+                     "HAVING COUNT(*) >= 1 " +
+                     "ORDER BY " +
+                     "CASE WHEN AVG(CASE WHEN s.hyl_sgpa10 > 0 THEN s.hyl_sgpa10 ELSE NULL END) IS NOT NULL " +
+                     "     THEN AVG(CASE WHEN s.hyl_sgpa10 > 0 THEN s.hyl_sgpa10 ELSE NULL END) " +
+                     "     ELSE COALESCE(AVG(CASE WHEN e.hyl_escore10 > 0 THEN e.hyl_escore10 ELSE NULL END), 0) / 20.0 " +
+                     "END DESC, " +
+                     "student_count DESC";
         
         try (Connection conn = DatabaseUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql);
@@ -647,7 +653,22 @@ public class StudentDAO {
                 Map<String, Object> origin = new HashMap<>();
                 origin.put("originName", rs.getString("origin_name"));
                 origin.put("studentCount", rs.getInt("student_count"));
-                origin.put("avgGPA", rs.getDouble("avg_gpa"));
+                
+                // 处理GPA，如果为0或null，则使用平均成绩计算
+                double avgGPA = rs.getDouble("avg_gpa");
+                if (rs.wasNull() || avgGPA == 0.0) {
+                    double avgScore = rs.getDouble("avg_score");
+                    if (!rs.wasNull() && avgScore > 0) {
+                        // 简单的成绩到GPA转换：90-100=4.0, 80-89=3.0, 70-79=2.0, 60-69=1.0, <60=0
+                        if (avgScore >= 90) avgGPA = 4.0;
+                        else if (avgScore >= 80) avgGPA = 3.0;
+                        else if (avgScore >= 70) avgGPA = 2.0;
+                        else if (avgScore >= 60) avgGPA = 1.0;
+                        else avgGPA = 0.0;
+                    }
+                }
+                
+                origin.put("avgGPA", avgGPA);
                 origin.put("goodStudents", rs.getInt("good_students"));
                 ranking.add(origin);
             }
@@ -709,20 +730,30 @@ public class StudentDAO {
     }
     
     /**
-     * 获取生源地表现
+     * 获取生源地表现（按成绩分析）
      */
     public List<Map<String, Object>> getOriginPerformance() throws SQLException {
         List<Map<String, Object>> performance = new ArrayList<>();
-        String sql = "SELECT hyl_splace10 as origin_name, " +
+        // 修改SQL查询，当所有学生GPA都为0时，改为按学生平均成绩排序
+        String sql = "SELECT " +
+                     "s.hyl_splace10 as origin_name, " +
                      "COUNT(*) as student_count, " +
-                     "AVG(s.hyl_sgpa10) as avg_gpa, " +
+                     "AVG(CASE WHEN s.hyl_sgpa10 > 0 THEN s.hyl_sgpa10 ELSE NULL END) as avg_gpa, " +
                      "COUNT(CASE WHEN s.hyl_sgpa10 >= 4.0 THEN 1 END) as excellent_count, " +
                      "COUNT(CASE WHEN s.hyl_sgpa10 >= 3.0 AND s.hyl_sgpa10 < 4.0 THEN 1 END) as good_count, " +
-                     "COUNT(CASE WHEN s.hyl_sgpa10 < 3.0 THEN 1 END) as poor_count " +
+                     "COUNT(CASE WHEN s.hyl_sgpa10 > 0 AND s.hyl_sgpa10 < 3.0 THEN 1 END) as poor_count, " +
+                     "AVG(CASE WHEN e.hyl_escore10 > 0 THEN e.hyl_escore10 ELSE NULL END) as avg_score " +
                      "FROM huyl_student10 s " +
-                     "WHERE hyl_splace10 IS NOT NULL " +
-                     "GROUP BY hyl_splace10 " +
-                     "ORDER BY avg_gpa DESC";
+                     "LEFT JOIN huyl_enroll10 e ON s.hyl_sno10 = e.hyl_sno10 " +
+                     "WHERE s.hyl_splace10 IS NOT NULL AND s.hyl_splace10 != '' " +
+                     "GROUP BY s.hyl_splace10 " +
+                     "HAVING COUNT(*) >= 1 " +
+                     "ORDER BY " +
+                     "CASE WHEN AVG(CASE WHEN s.hyl_sgpa10 > 0 THEN s.hyl_sgpa10 ELSE NULL END) IS NOT NULL " +
+                     "     THEN AVG(CASE WHEN s.hyl_sgpa10 > 0 THEN s.hyl_sgpa10 ELSE NULL END) " +
+                     "     ELSE COALESCE(AVG(CASE WHEN e.hyl_escore10 > 0 THEN e.hyl_escore10 ELSE NULL END), 0) / 20.0 " +
+                     "END DESC, " +
+                     "student_count DESC";
         
         try (Connection conn = DatabaseUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql);
@@ -732,7 +763,22 @@ public class StudentDAO {
                 Map<String, Object> origin = new HashMap<>();
                 origin.put("originName", rs.getString("origin_name"));
                 origin.put("studentCount", rs.getInt("student_count"));
-                origin.put("avgGPA", rs.getDouble("avg_gpa"));
+                
+                // 处理GPA，如果为0或null，则使用平均成绩计算
+                double avgGPA = rs.getDouble("avg_gpa");
+                if (rs.wasNull() || avgGPA == 0.0) {
+                    double avgScore = rs.getDouble("avg_score");
+                    if (!rs.wasNull() && avgScore > 0) {
+                        // 简单的成绩到GPA转换：90-100=4.0, 80-89=3.0, 70-79=2.0, 60-69=1.0, <60=0
+                        if (avgScore >= 90) avgGPA = 4.0;
+                        else if (avgScore >= 80) avgGPA = 3.0;
+                        else if (avgScore >= 70) avgGPA = 2.0;
+                        else if (avgScore >= 60) avgGPA = 1.0;
+                        else avgGPA = 0.0;
+                    }
+                }
+                
+                origin.put("avgGPA", avgGPA);
                 origin.put("excellentCount", rs.getInt("excellent_count"));
                 origin.put("goodCount", rs.getInt("good_count"));
                 origin.put("poorCount", rs.getInt("poor_count"));
@@ -971,5 +1017,63 @@ public class StudentDAO {
         }
         
         return ranking;
+    }
+    
+    /**
+     * 将ResultSet映射到Student对象
+     */
+    private Student mapResultSetToStudent(ResultSet rs) throws SQLException {
+        Student student = new Student();
+        student.setHylSno10(rs.getInt("hyl_sno10"));
+        student.setHylSage10(rs.getInt("hyl_sage10"));
+        student.setHylSname10(rs.getString("hyl_sname10"));
+        student.setHylSbirth10(rs.getDate("hyl_sbirth10"));
+        student.setHylSplace10(rs.getString("hyl_splace10"));
+        student.setHylSsex10(rs.getString("hyl_ssex10"));
+        student.setHylScreditsum10(rs.getDouble("hyl_screditsum10"));
+        student.setHylSemail10(rs.getString("hyl_semail10"));
+        student.setHylSphone10(rs.getString("hyl_sphone10"));
+        student.setHylSenrolldate10(rs.getDate("hyl_senrolldate10"));
+        student.setHylSstatus10(rs.getString("hyl_sstatus10"));
+        student.setHylSgpa10(rs.getDouble("hyl_sgpa10"));
+        student.setHylSrank10(rs.getInt("hyl_srank10"));
+        student.setHylMno10(rs.getInt("hyl_mno10"));
+        student.setHylAcno10(rs.getInt("hyl_acno10"));
+        student.setMajorName(rs.getString("major_name"));
+        student.setClassName(rs.getString("class_name"));
+        
+        return student;
+    }
+    
+    /**
+     * 手动更新所有学生的GPA（基于选课成绩）
+     */
+    public void updateAllStudentsGPA() throws SQLException {
+        String updateSql = "UPDATE huyl_student10 SET hyl_sgpa10 = (" +
+                          "SELECT COALESCE(" +
+                          "  ROUND(" +
+                          "    SUM(CASE " +
+                          "      WHEN e.hyl_escore10 >= 90 THEN 4.0 * c.hyl_ccredit10 " +
+                          "      WHEN e.hyl_escore10 >= 80 THEN 3.0 * c.hyl_ccredit10 " +
+                          "      WHEN e.hyl_escore10 >= 70 THEN 2.0 * c.hyl_ccredit10 " +
+                          "      WHEN e.hyl_escore10 >= 60 THEN 1.0 * c.hyl_ccredit10 " +
+                          "      ELSE 0.0 " +
+                          "    END) / NULLIF(SUM(c.hyl_ccredit10), 0), 3" +
+                          "  ), 0.0" +
+                          ") " +
+                          "FROM huyl_enroll10 e " +
+                          "JOIN huyl_tclass10 tc ON e.hyl_tcno10 = tc.hyl_tcno10 " +
+                          "JOIN huyl_course10 c ON tc.hyl_cno10 = c.hyl_cno10 " +
+                          "WHERE e.hyl_sno10 = huyl_student10.hyl_sno10 " +
+                          "  AND e.hyl_open10 = true " +
+                          "  AND e.hyl_escore10 > 0" +
+                          ")";
+        
+        try (Connection conn = DatabaseUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(updateSql)) {
+            
+            int updatedRows = pstmt.executeUpdate();
+            System.out.println("更新了 " + updatedRows + " 个学生的GPA");
+        }
     }
 } 

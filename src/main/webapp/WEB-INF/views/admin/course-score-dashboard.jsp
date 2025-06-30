@@ -104,11 +104,6 @@
             background-color: #f8f9fa;
         }
         
-        /* 排名样式 */
-        .rank-1 { background-color: #fff3cd !important; }
-        .rank-2 { background-color: #f8f9fa !important; }
-        .rank-3 { background-color: #e2e3e5 !important; }
-        
         /* 成绩样式 */
         .score-excellent {
             color: #28a745;
@@ -233,9 +228,9 @@
         
         <!-- 主要内容区域 -->
         <div class="dashboard-grid">
-            <!-- 课程排名 -->
+            <!-- 课程成绩统计 -->
             <div class="dashboard-card">
-                <h3>🏆 课程成绩排名 (前10名)</h3>
+                <h3>📚 课程成绩统计</h3>
                 <c:choose>
                     <c:when test="${empty topCourses}">
                         <p style="text-align: center; color: #666; font-style: italic;">暂无课程数据</p>
@@ -244,7 +239,6 @@
                         <table>
                             <thead>
                                 <tr>
-                                    <th>排名</th>
                                     <th>课程名称</th>
                                     <th>授课教师</th>
                                     <th>选课人数</th>
@@ -253,31 +247,7 @@
                             </thead>
                             <tbody>
                                 <c:forEach var="course" items="${topCourses}" varStatus="status">
-                                    <c:choose>
-                                        <c:when test="${status.index == 0}">
-                                            <c:set var="rowClass" value="rank-1"/>
-                                        </c:when>
-                                        <c:when test="${status.index == 1}">
-                                            <c:set var="rowClass" value="rank-2"/>
-                                        </c:when>
-                                        <c:when test="${status.index == 2}">
-                                            <c:set var="rowClass" value="rank-3"/>
-                                        </c:when>
-                                        <c:otherwise>
-                                            <c:set var="rowClass" value=""/>
-                                        </c:otherwise>
-                                    </c:choose>
-                                    <tr class="${rowClass}">
-                                        <td>
-                                            <strong style="color: #667eea;">
-                                                <c:choose>
-                                                    <c:when test="${status.index == 0}">🥇</c:when>
-                                                    <c:when test="${status.index == 1}">🥈</c:when>
-                                                    <c:when test="${status.index == 2}">🥉</c:when>
-                                                    <c:otherwise>${status.index + 1}</c:otherwise>
-                                                </c:choose>
-                                            </strong>
-                                        </td>
+                                    <tr>
                                         <td>
                                             <strong>${course.courseName}</strong>
                                         </td>
@@ -324,9 +294,9 @@
                 </c:choose>
             </div>
             
-            <!-- 教师排名 -->
+            <!-- 教师统计 -->
             <div class="dashboard-card">
-                <h3>👨‍🏫 教师排名 (前5名)</h3>
+                <h3>👨‍🏫 教师统计</h3>
                 <c:choose>
                     <c:when test="${empty topTeachers}">
                         <p style="text-align: center; color: #666; font-style: italic;">暂无教师数据</p>
@@ -335,38 +305,13 @@
                         <table>
                             <thead>
                                 <tr>
-                                    <th>排名</th>
                                     <th>教师姓名</th>
                                     <th>平均成绩</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <c:forEach var="teacher" items="${topTeachers}" varStatus="status">
-                                    <c:choose>
-                                        <c:when test="${status.index == 0}">
-                                            <c:set var="rowClass" value="rank-1"/>
-                                        </c:when>
-                                        <c:when test="${status.index == 1}">
-                                            <c:set var="rowClass" value="rank-2"/>
-                                        </c:when>
-                                        <c:when test="${status.index == 2}">
-                                            <c:set var="rowClass" value="rank-3"/>
-                                        </c:when>
-                                        <c:otherwise>
-                                            <c:set var="rowClass" value=""/>
-                                        </c:otherwise>
-                                    </c:choose>
-                                    <tr class="${rowClass}">
-                                        <td>
-                                            <strong style="color: #667eea;">
-                                                <c:choose>
-                                                    <c:when test="${status.index == 0}">🥇</c:when>
-                                                    <c:when test="${status.index == 1}">🥈</c:when>
-                                                    <c:when test="${status.index == 2}">🥉</c:when>
-                                                    <c:otherwise>${status.index + 1}</c:otherwise>
-                                                </c:choose>
-                                            </strong>
-                                        </td>
+                                    <tr>
                                         <td>
                                             <strong>${teacher.teacherName}</strong>
                                         </td>
@@ -410,8 +355,53 @@
             <a href="${pageContext.request.contextPath}/course/score-stats" class="btn btn-info">📈 课程成绩统计</a>
             <a href="${pageContext.request.contextPath}/admin/course-score/export?type=course-scores" class="btn btn-warning">📥 导出课程数据</a>
             <a href="${pageContext.request.contextPath}/admin/course-score/export?type=teacher-stats" class="btn btn-warning">📥 导出教师数据</a>
+            <button onclick="updateGPA()" class="btn" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">🔄 更新学生GPA</button>
             <a href="${pageContext.request.contextPath}/" class="btn btn-primary">🏠 返回首页</a>
         </div>
+        
+        <!-- JavaScript -->
+        <script>
+        function updateGPA() {
+            if (confirm('确定要更新所有学生的GPA吗？这个操作可能需要一些时间。')) {
+                // 显示加载状态
+                const button = event.target;
+                const originalText = button.innerHTML;
+                button.innerHTML = '⏳ 更新中...';
+                button.disabled = true;
+                
+                // 发送POST请求
+                fetch('${pageContext.request.contextPath}/admin/course-score/update-gpa', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    }
+                })
+                .then(response => {
+                    if (response.ok) {
+                        // 重新加载页面以显示更新结果
+                        window.location.reload();
+                    } else {
+                        throw new Error('更新失败');
+                    }
+                })
+                .catch(error => {
+                    alert('更新失败: ' + error.message);
+                    button.innerHTML = originalText;
+                    button.disabled = false;
+                });
+            }
+        }
+        
+        // 显示成功或错误消息
+        <c:if test="${not empty sessionScope.successMessage}">
+            alert('${sessionScope.successMessage}');
+            <c:remove var="successMessage" scope="session"/>
+        </c:if>
+        <c:if test="${not empty sessionScope.errorMessage}">
+            alert('${sessionScope.errorMessage}');
+            <c:remove var="errorMessage" scope="session"/>
+        </c:if>
+        </script>
     </div>
 </body>
 </html> 

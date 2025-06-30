@@ -1,7 +1,6 @@
 package org.example.demo111.controller;
 
 import java.io.IOException;
-import java.sql.SQLException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -61,8 +60,6 @@ public class TeacherController extends HttpServlet {
                 listActiveTeachers(request, response);
             } else if ("/profile".equals(pathInfo)) {
                 showEditProfileForm(request, response);
-            } else if ("/my-courses".equals(pathInfo)) {
-                showMyCourses(request, response);
             } else {
                 response.sendError(HttpServletResponse.SC_NOT_FOUND);
             }
@@ -82,6 +79,8 @@ public class TeacherController extends HttpServlet {
                 addTeacher(request, response);
             } else if ("/update".equals(pathInfo)) {
                 updateTeacher(request, response);
+            } else if ("/profile".equals(pathInfo)) {
+                updateTeacherProfile(request, response);
             } else if ("/delete".equals(pathInfo)) {
                 deleteTeacher(request, response);
             } else if ("/status".equals(pathInfo)) {
@@ -100,6 +99,12 @@ public class TeacherController extends HttpServlet {
      */
     private void listTeachers(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
+        User currentUser = (User) request.getSession().getAttribute("user");
+        if (currentUser == null || !"admin".equals(currentUser.getUserType())) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "权限不足，无法访问教师列表");
+            return;
+        }
+        
         List<Teacher> teachers = teacherService.getAllTeachers();
         request.setAttribute("teachers", teachers);
         request.getRequestDispatcher("/WEB-INF/views/teacher/list.jsp").forward(request, response);
@@ -110,6 +115,12 @@ public class TeacherController extends HttpServlet {
      */
     private void showAddTeacherForm(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
+        User currentUser = (User) request.getSession().getAttribute("user");
+        if (currentUser == null || !"admin".equals(currentUser.getUserType())) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "权限不足，无法添加教师");
+            return;
+        }
+        
         try {
             List<Map<String, Object>> faculties = facultyDAO.getAllFaculties();
             request.setAttribute("faculties", faculties);
@@ -125,6 +136,12 @@ public class TeacherController extends HttpServlet {
      */
     private void viewTeacher(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
+        User currentUser = (User) request.getSession().getAttribute("user");
+        if (currentUser == null || !"admin".equals(currentUser.getUserType())) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "权限不足，无法查看教师详情");
+            return;
+        }
+        
         Integer teacherId = Integer.parseInt(request.getParameter("id"));
         Teacher teacher = teacherService.getTeacherById(teacherId);
         
@@ -142,6 +159,12 @@ public class TeacherController extends HttpServlet {
      */
     private void editTeacher(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
+        User currentUser = (User) request.getSession().getAttribute("user");
+        if (currentUser == null || !"admin".equals(currentUser.getUserType())) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "权限不足，无法编辑教师信息");
+            return;
+        }
+        
         Integer teacherId = Integer.parseInt(request.getParameter("id"));
         Teacher teacher = teacherService.getTeacherById(teacherId);
         
@@ -159,6 +182,12 @@ public class TeacherController extends HttpServlet {
      */
     private void searchTeachers(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
+        User currentUser = (User) request.getSession().getAttribute("user");
+        if (currentUser == null || !"admin".equals(currentUser.getUserType())) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "权限不足，无法搜索教师");
+            return;
+        }
+        
         String name = request.getParameter("name");
         List<Teacher> teachers = teacherService.searchTeachersByName(name);
         request.setAttribute("teachers", teachers);
@@ -171,6 +200,12 @@ public class TeacherController extends HttpServlet {
      */
     private void getTeachersByTitle(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
+        User currentUser = (User) request.getSession().getAttribute("user");
+        if (currentUser == null || !"admin".equals(currentUser.getUserType())) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "权限不足，无法按职称查询教师");
+            return;
+        }
+        
         String title = request.getParameter("title");
         List<Teacher> teachers = teacherService.getTeachersByTitle(title);
         request.setAttribute("teachers", teachers);
@@ -183,6 +218,12 @@ public class TeacherController extends HttpServlet {
      */
     private void listActiveTeachers(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
+        User currentUser = (User) request.getSession().getAttribute("user");
+        if (currentUser == null || !"admin".equals(currentUser.getUserType())) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "权限不足，无法查看在职教师列表");
+            return;
+        }
+        
         List<Teacher> teachers = teacherService.getActiveTeachers();
         request.setAttribute("teachers", teachers);
         request.setAttribute("filterActive", true);
@@ -200,8 +241,10 @@ public class TeacherController extends HttpServlet {
             return;
         }
 
+        System.out.println("currentUser: " + currentUser.getUserId());
+
         try {
-            Integer teacherId = Integer.parseInt(currentUser.getUsername());
+            Integer teacherId = currentUser.getUserId();
             Teacher teacher = teacherService.getTeacherById(teacherId);
             
             if (teacher == null) {
@@ -211,7 +254,10 @@ public class TeacherController extends HttpServlet {
             }
             
             request.setAttribute("teacher", teacher);
-            request.getRequestDispatcher("/WEB-INF/views/teacher/edit.jsp").forward(request, response);
+
+            System.out.println("teacher: " + teacher);
+
+            request.getRequestDispatcher("/WEB-INF/views/teacher/profile-edit.jsp").forward(request, response);
         } catch (NumberFormatException e) {
             request.setAttribute("error", "您的用户ID格式不正确，无法加载个人信息");
             request.getRequestDispatcher("/WEB-INF/views/error.jsp").forward(request, response);
@@ -219,28 +265,52 @@ public class TeacherController extends HttpServlet {
     }
     
     /**
-     * 显示教师所教授的课程列表
+     * 更新教师个人资料
      */
-    private void showMyCourses(HttpServletRequest request, HttpServletResponse response) 
+    private void updateTeacherProfile(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
+        
+        // 检查用户登录状态和权限
         User currentUser = (User) request.getSession().getAttribute("user");
         if (currentUser == null || !"teacher".equals(currentUser.getUserType())) {
             response.sendRedirect(request.getContextPath() + "/login");
             return;
         }
-
+        
         try {
-            Integer teacherId = Integer.parseInt(currentUser.getUsername());
-            List<Map<String, Object>> teachingClasses = courseService.findTeachingClassesByTeacherId(teacherId);
-            request.setAttribute("teachingClasses", teachingClasses);
-            request.getRequestDispatcher("/WEB-INF/views/teacher/my-courses.jsp").forward(request, response);
+            // 获取表单参数
+            String email = request.getParameter("hylTemail10");
+            String phone = request.getParameter("hylTphone10");
+            
+            // 验证邮箱格式（如果填写）
+            if (email != null && !email.trim().isEmpty() && !email.contains("@")) {
+                request.setAttribute("error", "邮箱格式不正确");
+                showEditProfileForm(request, response);
+                return;
+            }
+            
+            // 更新教师信息
+            Integer teacherId = currentUser.getUserId();
+            boolean success = teacherService.updateTeacherProfile(teacherId, 
+                    email != null ? email.trim() : null, 
+                    phone != null ? phone.trim() : null);
+            
+            if (success) {
+                request.setAttribute("success", "个人信息更新成功！");
+            } else {
+                request.setAttribute("error", "信息更新失败，请重试");
+            }
+            
+            // 重新显示编辑页面
+            showEditProfileForm(request, response);
+            
         } catch (NumberFormatException e) {
-            request.setAttribute("error", "用户ID格式错误，无法获取课程列表");
-            request.getRequestDispatcher("/WEB-INF/views/error.jsp").forward(request, response);
-        } catch (SQLException e) {
+            request.setAttribute("error", "用户ID格式错误");
+            showEditProfileForm(request, response);
+        } catch (Exception e) {
             e.printStackTrace();
-            request.setAttribute("error", "数据库查询出错，无法获取课程列表");
-            request.getRequestDispatcher("/WEB-INF/views/error.jsp").forward(request, response);
+            request.setAttribute("error", "更新个人信息失败：" + e.getMessage());
+            showEditProfileForm(request, response);
         }
     }
     
@@ -249,6 +319,12 @@ public class TeacherController extends HttpServlet {
      */
     private void addTeacher(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
+        User currentUser = (User) request.getSession().getAttribute("user");
+        if (currentUser == null || !"admin".equals(currentUser.getUserType())) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "权限不足，无法添加教师");
+            return;
+        }
+        
         try {
             Teacher teacher = parseTeacherFromRequest(request);
             
@@ -292,6 +368,12 @@ public class TeacherController extends HttpServlet {
      */
     private void updateTeacher(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
+        User currentUser = (User) request.getSession().getAttribute("user");
+        if (currentUser == null || !"admin".equals(currentUser.getUserType())) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "权限不足，无法更新教师信息");
+            return;
+        }
+        
         Teacher teacher = parseTeacherFromRequest(request);
         
         if (!teacherService.validateTeacher(teacher)) {
@@ -316,6 +398,12 @@ public class TeacherController extends HttpServlet {
      */
     private void deleteTeacher(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
+        User currentUser = (User) request.getSession().getAttribute("user");
+        if (currentUser == null || !"admin".equals(currentUser.getUserType())) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "权限不足，无法删除教师");
+            return;
+        }
+        
         Integer teacherId = Integer.parseInt(request.getParameter("id"));
         
         boolean success = teacherService.deleteTeacher(teacherId);
@@ -333,6 +421,12 @@ public class TeacherController extends HttpServlet {
      */
     private void updateTeacherStatus(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
+        User currentUser = (User) request.getSession().getAttribute("user");
+        if (currentUser == null || !"admin".equals(currentUser.getUserType())) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "权限不足，无法更新教师状态");
+            return;
+        }
+        
         Integer teacherId = Integer.parseInt(request.getParameter("id"));
         String status = request.getParameter("status");
         

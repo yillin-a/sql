@@ -31,6 +31,17 @@ public class EnrollmentService {
     }
     
     /**
+     * 搜索选课记录
+     */
+    public List<Enrollment> searchEnrollments(String studentName, String courseName) {
+        try {
+            return enrollmentDAO.search(studentName, courseName);
+        } catch (SQLException e) {
+            throw new RuntimeException("搜索选课记录失败", e);
+        }
+    }
+    
+    /**
      * 根据学号获取学生成绩
      */
     public List<Enrollment> getStudentScores(Integer studentId) {
@@ -101,6 +112,16 @@ public class EnrollmentService {
         if (enrollment.getHylEscore10() != null && !validateScore(enrollment.getHylEscore10())) {
             throw new IllegalArgumentException("成绩必须在0-100之间");
         }
+
+        // 当分数更新时，自动计算并更新GPA
+        Integer score = enrollment.getHylEscore10();
+        if (score != null) {
+            BigDecimal gpa = BigDecimal.valueOf(GPAConverter.scoreToGPACustom(score));
+            enrollment.setHylEgpa10(gpa);
+        } else {
+            enrollment.setHylEgpa10(null);
+        }
+        
         try {
             return enrollmentDAO.updateEnrollment(enrollment);
         } catch (SQLException e) {
@@ -436,6 +457,28 @@ public class EnrollmentService {
             return enrollmentDAO.deleteEnrollment(studentId, teachingClassId);
         } catch (SQLException e) {
             throw new RuntimeException("退选失败: " + e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * 根据教师ID获取该教师所教授的所有选课记录
+     */
+    public List<Enrollment> getEnrollmentsByTeacherId(Integer teacherId) {
+        try {
+            return enrollmentDAO.findByTeacherId(teacherId);
+        } catch (SQLException e) {
+            throw new RuntimeException("获取教师选课记录失败", e);
+        }
+    }
+    
+    /**
+     * 根据教师ID和搜索条件查询选课记录
+     */
+    public List<Enrollment> searchEnrollmentsByTeacherId(Integer teacherId, String studentName, String courseName) {
+        try {
+            return enrollmentDAO.searchByTeacherId(teacherId, studentName, courseName);
+        } catch (SQLException e) {
+            throw new RuntimeException("搜索教师选课记录失败", e);
         }
     }
 } 

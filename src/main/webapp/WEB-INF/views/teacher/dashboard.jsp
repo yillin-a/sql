@@ -269,7 +269,6 @@
                     </div>
                 </div>
                 <div class="quick-actions">
-                    <a href="${pageContext.request.contextPath}/teacher/my-courses" class="action-btn">📚 我的课程与成绩</a>
                     <a href="${pageContext.request.contextPath}/teacher/profile" class="action-btn secondary">✏️ 修改个人信息</a>
                 </div>
             </div>
@@ -290,16 +289,12 @@
                         <div class="stat-value"><fmt:formatNumber value="${averageScore}" pattern="#.#"/></div>
                         <div class="stat-label">平均成绩</div>
                     </div>
-                    <div class="stat-item">
-                        <div class="stat-value">95%</div>
-                        <div class="stat-label">出勤率</div>
-                    </div>
                 </div>
                 
                 <div class="quick-actions">
                     <a href="${pageContext.request.contextPath}/course/list" class="action-btn">所有课程列表</a>
                     <a href="${pageContext.request.contextPath}/course/average-scores" class="action-btn secondary">课程成绩统计</a>
-                    <a href="${pageContext.request.contextPath}/teacher/list" class="action-btn warning">教师通讯录</a>
+                    <a href="${pageContext.request.contextPath}/enrollment/list" class="action-btn warning">📚 选课记录管理</a>
                 </div>
             </div>
         </div>

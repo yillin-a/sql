@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.example.demo111.model.Student;
+import org.example.demo111.service.EnrollmentService;
 import org.example.demo111.service.StudentService;
 
 import jakarta.servlet.ServletException;
@@ -23,10 +24,12 @@ import jakarta.servlet.http.HttpServletResponse;
 @WebServlet("/student/*")
 public class StudentController extends HttpServlet {
     private final StudentService studentService;
+    private final EnrollmentService enrollmentService;
     private final SimpleDateFormat dateFormat;
     
     public StudentController() {
         this.studentService = new StudentService();
+        this.enrollmentService = new EnrollmentService();
         this.dateFormat = new SimpleDateFormat("yyyy-MM-dd");
     }
     
@@ -52,6 +55,7 @@ public class StudentController extends HttpServlet {
                 listStudentRanking(request, response);
             } else if ("/detail-scores".equals(pathInfo)) {
                 viewStudentDetailScores(request, response);
+
             } else {
                 response.sendError(HttpServletResponse.SC_NOT_FOUND);
             }
@@ -193,9 +197,15 @@ public class StudentController extends HttpServlet {
      */
     private void listStudentRanking(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
+        try {
         List<Map<String, Object>> rankings = studentService.getAllStudentsRanking();
         request.setAttribute("rankings", rankings);
         request.getRequestDispatcher("/WEB-INF/views/student/ranking.jsp").forward(request, response);
+        } catch (Exception e) {
+            e.printStackTrace();
+            request.setAttribute("error", e.getMessage());
+            request.getRequestDispatcher("/WEB-INF/views/error.jsp").forward(request, response);
+        }
     }
     
     /**
@@ -386,4 +396,6 @@ public class StudentController extends HttpServlet {
         
         return age;
     }
+    
+
 } 

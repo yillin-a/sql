@@ -183,10 +183,9 @@
                     <label for="hylStatus10">状态</label>
                     <select id="hylStatus10" name="hylStatus10">
                         <option value="">请选择状态</option>
-                        <option value="在读" <c:if test="${not empty enrollment and enrollment.hylStatus10 == '在读'}">selected</c:if>>在读</option>
-                        <option value="退学" <c:if test="${not empty enrollment and enrollment.hylStatus10 == '退学'}">selected</c:if>>退学</option>
-                        <option value="休学" <c:if test="${not empty enrollment and enrollment.hylStatus10 == '休学'}">selected</c:if>>休学</option>
-                        <option value="毕业" <c:if test="${not empty enrollment and enrollment.hylStatus10 == '毕业'}">selected</c:if>>毕业</option>
+                        <option value="正常" <c:if test="${not empty enrollment and enrollment.hylStatus10 == '正常'}">selected</c:if>>正常</option>
+                        <option value="退课" <c:if test="${not empty enrollment and enrollment.hylStatus10 == '退课'}">selected</c:if>>退课</option>
+                        <option value="重修" <c:if test="${not empty enrollment and enrollment.hylStatus10 == '重修'}">selected</c:if>>重修</option>
                     </select>
                     <div class="help-text">选择学生的当前状态</div>
                 </div>
@@ -205,7 +204,7 @@
                 <li><strong>学号：</strong>必须输入有效的学生学号，该学生必须已存在于系统中</li>
                 <li><strong>教学班编号：</strong>必须输入有效的教学班编号，该教学班必须已存在于系统中</li>
                 <li><strong>成绩：</strong>可选填，范围0-100分，如果暂时没有成绩可以留空</li>
-                <li><strong>状态：</strong>选择学生的当前学习状态，默认为"在读"</li>
+                <li><strong>状态：</strong>选择学生的选课状态，默认为"正常"</li>
             </ul>
         </div>
     </div>

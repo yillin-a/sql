@@ -398,7 +398,7 @@
                                 </td>
                                 <td>
                                     <c:choose>
-                                        <c:when test="${enrollment.hylStatus10 == '在读'}">
+                                        <c:when test="${enrollment.hylStatus10 == '正常'}">
                                             <span class="status-badge status-active">
                                                 <c:out value="${enrollment.hylStatus10}" default="未知"/>
                                             </span>

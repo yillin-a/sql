@@ -179,14 +179,7 @@
                     <tbody>
                         <c:forEach var="ranking" items="${rankings}" varStatus="status">
                             <tr class="rank-${status.index + 1}">
-                                <td>
-                                    <c:choose>
-                                        <c:when test="${status.index == 0}">🥇</c:when>
-                                        <c:when test="${status.index == 1}">🥈</c:when>
-                                        <c:when test="${status.index == 2}">🥉</c:when>
-                                        <c:otherwise>${status.index + 1}</c:otherwise>
-                                    </c:choose>
-                                </td>
+                                <td>${status.index + 1}</td>
                                 <td>${ranking.studentId}</td>
                                 <td>${ranking.studentName}</td>
                                 <td>${ranking.majorName}</td>

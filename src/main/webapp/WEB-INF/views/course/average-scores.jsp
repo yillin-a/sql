@@ -3,7 +3,7 @@
 <%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
 <html>
 <head>
-    <title>课程平均成绩统计 - 管理员</title>
+    <title>课程平均成绩统计</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -149,11 +149,6 @@
             background-color: #f8f9fa;
         }
         
-        /* 排名样式 */
-        .rank-1 { background-color: #fff3cd !important; }
-        .rank-2 { background-color: #f8f9fa !important; }
-        .rank-3 { background-color: #e2e3e5 !important; }
-        
         /* 成绩样式 */
         .score-excellent {
             color: #28a745;
@@ -278,7 +273,11 @@
 </head>
 <body>
     <div class="container">
-        <h2>📊 课程平均成绩统计</h2>
+        <h2>📊 课程平均成绩统计
+            <c:if test="${userType == 'teacher'}">
+                <span style="font-size: 0.6em; color: #666; font-weight: normal;">（我的课程）</span>
+            </c:if>
+        </h2>
         
         <!-- 搜索区域 -->
         <div class="search-section">
@@ -299,57 +298,95 @@
                 </div>
             </c:when>
             <c:otherwise>
-                <!-- 总体统计 -->
+                <!-- 统计概览 -->
                 <div class="stats-overview">
-                    <div class="stat-card">
-                        <h4>📚 课程总数</h4>
-                        <p class="value">
-                            <c:choose>
-                                <c:when test="${not empty overallStats}">${overallStats.totalCourses}</c:when>
-                                <c:otherwise>${scoreStats.size()}</c:otherwise>
-                            </c:choose>
-                        </p>
-                        <p class="subtitle">门课程</p>
-                    </div>
-                    <div class="stat-card">
-                        <h4>👥 教学班总数</h4>
-                        <p class="value">
-                            <c:choose>
-                                <c:when test="${not empty overallStats}">${overallStats.totalTeachingClasses}</c:when>
-                                <c:otherwise>${scoreStats.size()}</c:otherwise>
-                            </c:choose>
-                        </p>
-                        <p class="subtitle">个教学班</p>
-                    </div>
-                    <div class="stat-card">
-                        <h4>🎓 选课总人数</h4>
-                        <p class="value">
-                            <c:choose>
-                                <c:when test="${not empty overallStats}">${overallStats.totalStudents}</c:when>
-                                <c:otherwise>0</c:otherwise>
-                            </c:choose>
-                        </p>
-                        <p class="subtitle">人次</p>
-                    </div>
-                    <div class="stat-card">
-                        <h4>📈 总体平均分</h4>
-                        <p class="value">
-                            <c:choose>
-                                <c:when test="${not empty overallStats and not empty overallStats.overallAvgScore}">
-                                    <fmt:formatNumber value="${overallStats.overallAvgScore}" pattern="#.#"/>
-                                </c:when>
-                                <c:otherwise>0.0</c:otherwise>
-                            </c:choose>
-                        </p>
-                        <p class="subtitle">分</p>
-                    </div>
+                    <c:choose>
+                        <c:when test="${userType == 'admin' && not empty overallStats}">
+                            <!-- 管理员全局统计 -->
+                            <div class="stat-card">
+                                <h4>📚 课程总数</h4>
+                                <p class="value">${overallStats.totalCourses}</p>
+                                <p class="subtitle">门课程</p>
+                            </div>
+                            <div class="stat-card">
+                                <h4>👥 教学班总数</h4>
+                                <p class="value">${overallStats.totalTeachingClasses}</p>
+                                <p class="subtitle">个教学班</p>
+                            </div>
+                            <div class="stat-card">
+                                <h4>🎓 选课总人数</h4>
+                                <p class="value">${overallStats.totalStudents}</p>
+                                <p class="subtitle">人次</p>
+                            </div>
+                            <div class="stat-card">
+                                <h4>📈 总体平均分</h4>
+                                <p class="value">
+                                    <c:choose>
+                                        <c:when test="${not empty overallStats.overallAvgScore}">
+                                            <fmt:formatNumber value="${overallStats.overallAvgScore}" pattern="#.#"/>
+                                        </c:when>
+                                        <c:otherwise>0.0</c:otherwise>
+                                    </c:choose>
+                                </p>
+                                <p class="subtitle">分</p>
+                            </div>
+                        </c:when>
+                        <c:otherwise>
+                            <!-- 教师个人统计 -->
+                            <div class="stat-card">
+                                <h4>📚 我的课程数</h4>
+                                <p class="value">${scoreStats.size()}</p>
+                                <p class="subtitle">门课程</p>
+                            </div>
+                            <div class="stat-card">
+                                <h4>👥 我的教学班</h4>
+                                <p class="value">${scoreStats.size()}</p>
+                                <p class="subtitle">个教学班</p>
+                            </div>
+                            <div class="stat-card">
+                                <h4>🎓 学生总数</h4>
+                                <p class="value">
+                                    <c:set var="totalStudents" value="0"/>
+                                    <c:forEach var="stat" items="${scoreStats}">
+                                        <c:set var="totalStudents" value="${totalStudents + stat.studentCount}"/>
+                                    </c:forEach>
+                                    ${totalStudents}
+                                </p>
+                                <p class="subtitle">人次</p>
+                            </div>
+                            <div class="stat-card">
+                                <h4>📈 平均成绩</h4>
+                                <p class="value">
+                                    <c:choose>
+                                        <c:when test="${not empty scoreStats}">
+                                            <c:set var="totalScore" value="0"/>
+                                            <c:set var="validCount" value="0"/>
+                                            <c:forEach var="stat" items="${scoreStats}">
+                                                <c:if test="${stat.avgScore > 0}">
+                                                    <c:set var="totalScore" value="${totalScore + stat.avgScore}"/>
+                                                    <c:set var="validCount" value="${validCount + 1}"/>
+                                                </c:if>
+                                            </c:forEach>
+                                            <c:choose>
+                                                <c:when test="${validCount > 0}">
+                                                    <fmt:formatNumber value="${totalScore / validCount}" pattern="#.#"/>
+                                                </c:when>
+                                                <c:otherwise>0.0</c:otherwise>
+                                            </c:choose>
+                                        </c:when>
+                                        <c:otherwise>0.0</c:otherwise>
+                                    </c:choose>
+                                </p>
+                                <p class="subtitle">分</p>
+                            </div>
+                        </c:otherwise>
+                    </c:choose>
                 </div>
                 
                 <!-- 课程平均成绩表格 -->
                 <table>
                     <thead>
                         <tr>
-                            <th>排名</th>
                             <th>课程名称</th>
                             <th>课程类型</th>
                             <th>教学班编号</th>
@@ -365,31 +402,7 @@
                     </thead>
                     <tbody>
                         <c:forEach var="stat" items="${scoreStats}" varStatus="status">
-                            <c:choose>
-                                <c:when test="${status.index == 0}">
-                                    <c:set var="rowClass" value="rank-1"/>
-                                </c:when>
-                                <c:when test="${status.index == 1}">
-                                    <c:set var="rowClass" value="rank-2"/>
-                                </c:when>
-                                <c:when test="${status.index == 2}">
-                                    <c:set var="rowClass" value="rank-3"/>
-                                </c:when>
-                                <c:otherwise>
-                                    <c:set var="rowClass" value=""/>
-                                </c:otherwise>
-                            </c:choose>
-                            <tr class="${rowClass}">
-                                <td>
-                                    <strong style="color: #667eea;">
-                                        <c:choose>
-                                            <c:when test="${status.index == 0}">🥇</c:when>
-                                            <c:when test="${status.index == 1}">🥈</c:when>
-                                            <c:when test="${status.index == 2}">🥉</c:when>
-                                            <c:otherwise>${status.index + 1}</c:otherwise>
-                                        </c:choose>
-                                    </strong>
-                                </td>
+                            <tr>
                                 <td>
                                     <strong style="color: #333;">
                                         ${stat.courseName}
@@ -524,7 +537,9 @@
         
         <!-- 操作按钮 -->
         <div class="actions">
-            <a href="${pageContext.request.contextPath}/course/teacher-stats" class="btn btn-info">👨‍🏫 教师课程统计</a>
+            <c:if test="${userType == 'admin'}">
+                <a href="${pageContext.request.contextPath}/course/teacher-stats" class="btn btn-info">👨‍🏫 教师课程统计</a>
+            </c:if>
             <a href="${pageContext.request.contextPath}/course/score-stats" class="btn btn-success">📈 课程成绩统计</a>
             <a href="${pageContext.request.contextPath}/course/list" class="btn btn-primary">📚 课程管理</a>
             <a href="${pageContext.request.contextPath}/" class="btn btn-primary">🏠 返回首页</a>

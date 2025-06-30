@@ -20,15 +20,30 @@ import org.example.demo111.util.DatabaseUtil;
  * 选课管理DAO
  */
 public class EnrollmentDAO {
-    // 查询所有选课记录
+    // 查询所有选课记录（包括学生姓名、课程名称、教师姓名、学年和学期）
     public List<Enrollment> findAll() throws SQLException {
         List<Enrollment> list = new ArrayList<>();
-        String sql = "SELECT * FROM huyl_enroll10";
+        String sql = "SELECT e.*, s.hyl_sname10 AS student_name, c.hyl_cname10 AS course_name, " +
+                     "t.hyl_tname10 AS teacher_name, tc.hyl_tcyear10 AS year, tc.hyl_tcterm10 AS term " +
+                     "FROM huyl_enroll10 e " +
+                     "JOIN huyl_student10 s ON e.hyl_sno10 = s.hyl_sno10 " +
+                     "JOIN huyl_tclass10 tc ON e.hyl_tcno10 = tc.hyl_tcno10 " +
+                     "JOIN huyl_course10 c ON tc.hyl_cno10 = c.hyl_cno10 " +
+                     "LEFT JOIN huyl_teacher10 t ON tc.hyl_tno10 = t.hyl_tno10 " +
+                     "ORDER BY e.hyl_sno10, tc.hyl_tcyear10 DESC, tc.hyl_tcterm10 DESC";
         try (Connection conn = DatabaseUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql);
              ResultSet rs = pstmt.executeQuery()) {
             while (rs.next()) {
-                list.add(mapResultSetToEnrollment(rs));
+                Enrollment e = mapResultSetToEnrollment(rs);
+                e.setStudentName(rs.getString("student_name"));
+                e.setCourseName(rs.getString("course_name"));
+                e.setTeacherName(rs.getString("teacher_name"));
+                int yearVal = rs.getInt("year");
+                e.setYear(rs.wasNull() ? null : yearVal);
+                int termVal = rs.getInt("term");
+                e.setTerm(rs.wasNull() ? null : termVal);
+                list.add(e);
             }
         }
         return list;
@@ -139,13 +154,19 @@ public class EnrollmentDAO {
 
     // 更新成绩、状态等
     public boolean updateEnrollment(Enrollment enrollment) throws SQLException {
-        String sql = "UPDATE huyl_enroll10 SET hyl_escore10 = ?, hyl_status10 = ? WHERE hyl_sno10 = ? AND hyl_tcno10 = ?";
+        // System.out.println("updateEnrollment: " + enrollment);
+        // System.out.println(enrollment.getHylEscore10());
+        // System.out.println(enrollment.getHylStatus10());
+        // System.out.println(enrollment.getHylEgpa10());
+        String sql = "UPDATE huyl_enroll10 SET hyl_escore10 = ?, hyl_status10 = ?, hyl_egpa10 = ? WHERE hyl_sno10 = ? AND hyl_tcno10 = ?";
         try (Connection conn = DatabaseUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setObject(1, enrollment.getHylEscore10(), Types.INTEGER);
+            pstmt.setInt(1, enrollment.getHylEscore10());
             pstmt.setString(2, enrollment.getHylStatus10());
-            pstmt.setInt(3, enrollment.getHylSno10());
-            pstmt.setInt(4, enrollment.getHylTcno10());
+            pstmt.setBigDecimal(3, enrollment.getHylEgpa10());
+            pstmt.setInt(4, enrollment.getHylSno10());
+            pstmt.setInt(5, enrollment.getHylTcno10());
+            // System.out.println(pstmt);
             return pstmt.executeUpdate() > 0;
         }
     }
@@ -512,16 +533,15 @@ public class EnrollmentDAO {
         String sql = "SELECT c.hyl_cname10 as course_name, tc.hyl_tcname10 as class_name, " +
                      "t.hyl_tname10 as teacher_name, v.hyl_tplace10 as classroom, " +
                      "v.hyl_tstime10 as start_time, v.hyl_tetime10 as end_time, " +
-                     "v.hyl_tweekday10 as weekday, c.hyl_ccredit10 as credits " +
+                     "v.hyl_tweekday10 as weekday, c.hyl_ccredit10 as credits, " +
+                     "tc.hyl_tcyear10 as year, tc.hyl_tcterm10 as term " +
                      "FROM huyl_enroll10 e " +
                      "JOIN huyl_tclass10 tc ON e.hyl_tcno10 = tc.hyl_tcno10 " +
                      "JOIN huyl_course10 c ON tc.hyl_cno10 = c.hyl_cno10 " +
                      "JOIN huyl_teacher10 t ON tc.hyl_tno10 = t.hyl_tno10 " +
                      "LEFT JOIN huyl_venue10 v ON tc.hyl_tcno10 = v.hyl_tcno10 " +
                      "WHERE e.hyl_sno10 = ? AND e.hyl_status10 = '正常' " +
-                     "AND tc.hyl_tcyear10 = (SELECT MAX(hyl_tcyear10) FROM huyl_tclass10) " +
-                     "AND tc.hyl_tcterm10 = (SELECT MAX(hyl_tcterm10) FROM huyl_tclass10 WHERE hyl_tcyear10 = (SELECT MAX(hyl_tcyear10) FROM huyl_tclass10)) " +
-                     "ORDER BY v.hyl_tweekday10, v.hyl_tstime10";
+                     "ORDER BY tc.hyl_tcyear10 DESC, tc.hyl_tcterm10 DESC, v.hyl_tweekday10, v.hyl_tstime10";
         
         try (Connection conn = DatabaseUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -537,10 +557,13 @@ public class EnrollmentDAO {
                     course.put("endTime", rs.getTime("end_time"));
                     course.put("weekday", rs.getInt("weekday"));
                     course.put("credits", rs.getBigDecimal("credits"));
+                    course.put("year", rs.getInt("year"));
+                    course.put("term", rs.getInt("term"));
                     schedule.add(course);
                 }
             }
         }
+        
         return schedule;
     }
 
@@ -743,5 +766,134 @@ public class EnrollmentDAO {
             }
         }
         return enrolledClasses;
+    }
+
+    /**
+     * 根据教师ID查询该教师所教授的所有选课记录
+     */
+    public List<Enrollment> findByTeacherId(Integer teacherId) throws SQLException {
+        List<Enrollment> list = new ArrayList<>();
+        String sql = "SELECT e.*, s.hyl_sname10 AS student_name, c.hyl_cname10 AS course_name, " +
+                     "t.hyl_tname10 AS teacher_name, tc.hyl_tcyear10 AS year, tc.hyl_tcterm10 AS term " +
+                     "FROM huyl_enroll10 e " +
+                     "JOIN huyl_student10 s ON e.hyl_sno10 = s.hyl_sno10 " +
+                     "JOIN huyl_tclass10 tc ON e.hyl_tcno10 = tc.hyl_tcno10 " +
+                     "JOIN huyl_course10 c ON tc.hyl_cno10 = c.hyl_cno10 " +
+                     "LEFT JOIN huyl_teacher10 t ON tc.hyl_tno10 = t.hyl_tno10 " +
+                     "WHERE tc.hyl_tno10 = ? " +
+                     "ORDER BY e.hyl_sno10, tc.hyl_tcyear10 DESC, tc.hyl_tcterm10 DESC";
+        try (Connection conn = DatabaseUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, teacherId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    Enrollment e = mapResultSetToEnrollment(rs);
+                    e.setStudentName(rs.getString("student_name"));
+                    e.setCourseName(rs.getString("course_name"));
+                    e.setTeacherName(rs.getString("teacher_name"));
+                    int yearVal = rs.getInt("year");
+                    e.setYear(rs.wasNull() ? null : yearVal);
+                    int termVal = rs.getInt("term");
+                    e.setTerm(rs.wasNull() ? null : termVal);
+                    list.add(e);
+                }
+            }
+        }
+        return list;
+    }
+
+    /**
+     * 根据教师ID和搜索条件查询选课记录
+     */
+    public List<Enrollment> searchByTeacherId(Integer teacherId, String studentName, String courseName) throws SQLException {
+        List<Enrollment> list = new ArrayList<>();
+        StringBuilder sql = new StringBuilder(
+            "SELECT e.*, s.hyl_sname10 AS student_name, c.hyl_cname10 AS course_name, " +
+            "t.hyl_tname10 AS teacher_name, tc.hyl_tcyear10 AS year, tc.hyl_tcterm10 AS term " +
+            "FROM huyl_enroll10 e " +
+            "JOIN huyl_student10 s ON e.hyl_sno10 = s.hyl_sno10 " +
+            "JOIN huyl_tclass10 tc ON e.hyl_tcno10 = tc.hyl_tcno10 " +
+            "JOIN huyl_course10 c ON tc.hyl_cno10 = c.hyl_cno10 " +
+            "LEFT JOIN huyl_teacher10 t ON tc.hyl_tno10 = t.hyl_tno10 " +
+            "WHERE tc.hyl_tno10 = ? ");
+
+        List<Object> params = new ArrayList<>();
+        params.add(teacherId);
+        
+        if (studentName != null && !studentName.trim().isEmpty()) {
+            sql.append(" AND s.hyl_sname10 LIKE ?");
+            params.add("%" + studentName.trim() + "%");
+        }
+        if (courseName != null && !courseName.trim().isEmpty()) {
+            sql.append(" AND c.hyl_cname10 LIKE ?");
+            params.add("%" + courseName.trim() + "%");
+        }
+        sql.append(" ORDER BY e.hyl_sno10, tc.hyl_tcyear10 DESC, tc.hyl_tcterm10 DESC");
+
+        try (Connection conn = DatabaseUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql.toString())) {
+            for (int i = 0; i < params.size(); i++) {
+                pstmt.setObject(i + 1, params.get(i));
+            }
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    Enrollment e = mapResultSetToEnrollment(rs);
+                    e.setStudentName(rs.getString("student_name"));
+                    e.setCourseName(rs.getString("course_name"));
+                    e.setTeacherName(rs.getString("teacher_name"));
+                    int yearVal = rs.getInt("year");
+                    e.setYear(rs.wasNull() ? null : yearVal);
+                    int termVal = rs.getInt("term");
+                    e.setTerm(rs.wasNull() ? null : termVal);
+                    list.add(e);
+                }
+            }
+        }
+        return list;
+    }
+
+    // 根据学生姓名或课程名称搜索
+    public List<Enrollment> search(String studentName, String courseName) throws SQLException {
+        List<Enrollment> list = new ArrayList<>();
+        StringBuilder sql = new StringBuilder(
+            "SELECT e.*, s.hyl_sname10 AS student_name, c.hyl_cname10 AS course_name, " +
+            "t.hyl_tname10 AS teacher_name, tc.hyl_tcyear10 AS year, tc.hyl_tcterm10 AS term " +
+            "FROM huyl_enroll10 e " +
+            "JOIN huyl_student10 s ON e.hyl_sno10 = s.hyl_sno10 " +
+            "JOIN huyl_tclass10 tc ON e.hyl_tcno10 = tc.hyl_tcno10 " +
+            "JOIN huyl_course10 c ON tc.hyl_cno10 = c.hyl_cno10 " +
+            "LEFT JOIN huyl_teacher10 t ON tc.hyl_tno10 = t.hyl_tno10 WHERE 1=1 ");
+
+        List<Object> params = new ArrayList<>();
+        if (studentName != null && !studentName.trim().isEmpty()) {
+            sql.append(" AND s.hyl_sname10 LIKE ?");
+            params.add("%" + studentName.trim() + "%");
+        }
+        if (courseName != null && !courseName.trim().isEmpty()) {
+            sql.append(" AND c.hyl_cname10 LIKE ?");
+            params.add("%" + courseName.trim() + "%");
+        }
+        sql.append(" ORDER BY e.hyl_sno10, tc.hyl_tcyear10 DESC, tc.hyl_tcterm10 DESC");
+
+        try (Connection conn = DatabaseUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql.toString())) {
+            for (int i = 0; i < params.size(); i++) {
+                pstmt.setObject(i + 1, params.get(i));
+            }
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    Enrollment e = mapResultSetToEnrollment(rs);
+                    e.setStudentName(rs.getString("student_name"));
+                    e.setCourseName(rs.getString("course_name"));
+                    e.setTeacherName(rs.getString("teacher_name"));
+                    int yearVal = rs.getInt("year");
+                    e.setYear(rs.wasNull() ? null : yearVal);
+                    int termVal = rs.getInt("term");
+                    e.setTerm(rs.wasNull() ? null : termVal);
+                    list.add(e);
+                }
+            }
+        }
+        return list;
     }
 } 
