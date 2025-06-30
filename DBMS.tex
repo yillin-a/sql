@@ -1,0 +1,300 @@
+\documentclass{zjut-report}
+
+\usepackage[utf8]{inputenc}
+\usepackage[colorlinks,linkcolor=black]{hyperref}
+\usepackage{pdfpages}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{longtable}
+\usepackage{multicol}
+
+\usepackage{tikz}  
+\usetikzlibrary{arrows,shapes,chains}  
+\tikzstyle{startstop} = [rectangle, rounded corners, minimum width=3cm, minimum height=1cm, text centered, draw=black]
+\tikzstyle{io} = [trapezium, trapezium left angle = 70, trapezium right angle=110, minimum width=3cm, minimum height=1cm, text centered, draw=black]
+\tikzstyle{process} = [rectangle, minimum width=3cm, minimum height=1cm, text centered, draw=black]
+\tikzstyle{decision} = [diamond, minimum width=3cm, minimum height=1cm, text centered, draw=black, aspect=2, inner sep=2pt, node distance=5mm, thick]
+\tikzstyle{arrow} = [thick,->,>=stealth]
+\tikzstyle{box} = [rectangle, rounded corners, minimum width=1.5cm, minimum height=1cm, text centered, draw=blue!40, fill=blue!8]
+\tikzstyle{tree} = [circle, minimum width=1cm, minimum height=1cm, text centered, draw=blue!40, fill=blue!8]
+\tikzstyle{tree2} = [circle, minimum width=1cm, minimum height=1cm, text centered, draw=green!40, fill=green!8]
+\tikzset{global scale/.style={
+    scale=#1,
+    every node/.append style={scale=#1}
+  }
+}
+\usepackage{pgf-umlcd}
+
+\definecolor{dkgreen}{rgb}{0,0,0}
+\definecolor{gray}{rgb}{0.5,0.5,0.5}
+\definecolor{mauve}{rgb}{0.58,0,0.82}
+
+\lstset{frame=tb,
+  language=c++,
+  aboveskip=3mm,
+  belowskip=3mm,
+  showstringspaces=false,
+  columns=flexible,
+  basicstyle={\small\ttfamily},
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  keywordstyle=\color{blue},
+  commentstyle=\color{dkgreen},
+  stringstyle=\color{mauve},
+  breaklines=true,
+  breakatwhitespace=true
+  tabsize=2
+}
+
+\lhead{数据库系统课程设计报告}
+\rhead{\leftmark}
+
+\begin{document}
+
+\includepdf[pages={1}]{cover.pdf}
+
+% ================== 封面部分 ==================
+\begin{titlepage}
+\begin{center}
+% 2号黑体
+{\fontsize{36pt}{43pt}\selectfont\heiti XXX系统设计与实现}
+
+\vspace{2cm}
+
+% 3号仿宋_GB2312
+{\fontsize{16pt}{19pt}\selectfont\CJKfontspec{FangSong_GB2312} 作者名（小组组长）$^1$, 作者名2$^2$, 作者名3$^3$, 作者名4$^4$}
+
+\vspace{1cm}
+
+% 6号宋体
+{\fontsize{8pt}{10pt}\selectfont\songti
+$^1$(浙江工业大学计算机学院XX专业)\\
+$^2$(浙江工业大学计算机学院XX专业)\\
+$^3$(浙江工业大学计算机学院XX专业)\\
+$^4$(浙江工业大学计算机学院XX专业)
+}
+
+\vfill
+{\large \today}
+\end{center}
+\end{titlepage}
+
+% ================== 摘要和关键词 ==================
+\newpage
+\begin{center}
+% 摘要标题（黑体小四）
+{\fontsize{12pt}{15pt}\selectfont\heiti 摘\quad 要}
+\end{center}
+
+\vspace{1cm}
+
+% 摘要内容（小5号宋体）
+{\fontsize{9pt}{11pt}\selectfont\songti
+中文摘要内容置于此处，字体为小5号宋体。
+}
+
+\vspace{1cm}
+
+% 关键词（小5号宋体）
+{\fontsize{9pt}{11pt}\selectfont\songti
+\textbf{关键词：}关键词；关键词；关键词；关键词
+}
+
+% ================== 目录 ==================
+\tableofcontents
+\newpage
+
+% ================== 正文结构小标题 ==================
+% 一级标题：4号黑体
+\chapter{1\quad 需求分析}
+
+% 二级标题：5号黑体
+\section{1.1\quad 数据需求描述}
+\subsection{1.1.1\quad 三级标题}
+
+\section{1.2\quad 系统功能需求}
+\section{1.3\quad 其他性能需求}
+
+\chapter{2\quad 概念结构设计}
+\section{2.1\quad 局部E-R图}
+\section{2.2\quad 全局E-R图}
+\section{2.3\quad 优化E-R图}
+
+\chapter{3\quad 逻辑结构设计}
+\section{3.1\quad 关系模式设计}
+\section{3.2\quad 数据类型定义}
+\section{3.3\quad 关系模式的优化}
+\section{3.4\quad 关系模式的优化}
+
+\chapter{4\quad 物理结构设计}
+\section{4.1\quad 聚簇设计}
+\section{4.2\quad 索引设计}
+\section{4.3\quad 分区设计}
+
+\chapter{5\quad 数据库实施}
+\section{5.1\quad 基本表建立}
+\section{5.2\quad 视图的建立}
+\section{5.3\quad 索引的建立}
+\section{5.4\quad 触发器建立}
+\section{5.5\quad 建存储过程}
+
+\chapter{6\quad XXXX系统开发与运行}
+\section{6.1\quad 开发平台和开发环境介绍}
+\section{6.2\quad 数据准备}
+\section{6.3\quad 应用系统的开发}
+
+本系统采用成熟的Web开发技术栈：
+\begin{itemize}
+\item 前端：HTML、CSS、JavaScript、JSP
+\item 后端：Java Servlet、JavaBean
+\item 数据库：MySQL 8.0
+\item 服务器：Tomcat 9.0
+\end{itemize}
+
+这些技术都是经过实践验证的成熟技术，具有丰富的开发资源和社区支持，技术风险较低。
+
+\subsubsection{经济可行性}
+
+系统开发成本主要包括：
+\begin{itemize}
+\item 开发人员成本
+\item 服务器和数据库软件成本
+\item 维护和升级成本
+\end{itemize}
+
+相比传统管理方式，系统投入使用后能够显著降低人工成本，提高工作效率，具有良好的经济效益。
+
+\subsubsection{操作可行性}
+
+系统采用直观的Web界面，操作简单易学，用户培训成本低。系统支持多角色权限管理，能够满足不同用户的使用需求。
+
+\subsection{应用环境}
+
+\subsubsection{硬件环境}
+\begin{itemize}
+\item 服务器：支持Java运行环境的服务器
+\item 客户端：支持现代浏览器的计算机设备
+\item 网络：稳定的网络连接
+\end{itemize}
+
+\subsubsection{软件环境}
+\begin{itemize}
+\item 操作系统：Windows/Linux/macOS
+\item 数据库：MySQL 8.0及以上版本
+\item Web服务器：Apache Tomcat 9.0及以上版本
+\item 浏览器：Chrome、Firefox、Safari、Edge等现代浏览器
+\end{itemize}
+
+\section{数据需求描述}
+
+\subsection{数据字典}
+
+系统涉及的主要数据实体及其属性如下：
+
+\subsubsection{用户信息表(User)}
+\begin{itemize}
+\item 用户ID (user\_id)：主键，唯一标识用户
+\item 用户名 (username)：用户登录名，唯一
+\item 密码 (password)：用户登录密码，加密存储
+\item 用户类型 (user\_type)：用户角色（管理员/教师/学生）
+\item 创建时间 (create\_time)：用户创建时间
+\end{itemize}
+
+\subsubsection{学生信息表(Student)}
+\begin{itemize}
+\item 学生ID (student\_id)：主键，学号
+\item 姓名 (name)：学生姓名
+\item 性别 (gender)：学生性别
+\item 出生日期 (birth\_date)：学生出生日期
+\item 专业 (major)：学生所属专业
+\item 班级 (class)：学生所在班级
+\item 入学年份 (enrollment\_year)：学生入学年份
+\end{itemize}
+
+\subsubsection{教师信息表(Teacher)}
+\begin{itemize}
+\item 教师ID (teacher\_id)：主键，工号
+\item 姓名 (name)：教师姓名
+\item 性别 (gender)：教师性别
+\item 职称 (title)：教师职称
+\item 所属院系 (department)：教师所属院系
+\item 联系电话 (phone)：教师联系电话
+\end{itemize}
+
+\subsubsection{课程信息表(Course)}
+\begin{itemize}
+\item 课程ID (course\_id)：主键，课程编号
+\item 课程名称 (course\_name)：课程名称
+\item 学分 (credits)：课程学分
+\item 授课教师 (teacher\_id)：外键，关联教师表
+\item 课程类型 (course\_type)：课程类型（必修/选修）
+\item 开课学期 (semester)：开课学期
+\end{itemize}
+
+\subsubsection{选课信息表(Enrollment)}
+\begin{itemize}
+\item 选课ID (enrollment\_id)：主键
+\item 学生ID (student\_id)：外键，关联学生表
+\item 课程ID (course\_id)：外键，关联课程表
+\item 选课时间 (enrollment\_time)：选课时间
+\item 成绩 (score)：学生成绩
+\end{itemize}
+
+\subsection{数据流图}
+
+\subsubsection{初级数据流图}
+
+系统的主要数据流包括：
+\begin{enumerate}
+\item 用户登录认证流程
+\item 学生信息管理流程
+\item 课程信息管理流程
+\item 成绩录入与查询流程
+\item 成绩统计分析流程
+\end{enumerate}
+
+\subsubsection{详细级数据流图}
+
+\paragraph{用户登录认证流程}
+\begin{enumerate}
+\item 用户输入用户名和密码
+\item 系统验证用户身份
+\item 根据用户类型跳转到相应界面
+\item 记录登录日志
+\end{enumerate}
+
+\paragraph{成绩管理流程}
+\begin{enumerate}
+\item 教师登录系统
+\item 选择要录入成绩的课程
+\item 查看选课学生列表
+\item 录入学生成绩
+\item 系统保存成绩数据
+\item 生成成绩统计报告
+\end{enumerate}
+
+\subsection{系统开发边界}
+
+系统的主要功能边界包括：
+
+\begin{itemize}
+\item \textbf{用户管理}：用户注册、登录、权限管理
+\item \textbf{学生管理}：学生信息的增删改查
+\item \textbf{教师管理}：教师信息的增删改查
+\item \textbf{课程管理}：课程信息的增删改查
+\item \textbf{选课管理}：学生选课、退课操作
+\item \textbf{成绩管理}：成绩录入、修改、查询
+\item \textbf{统计分析}：成绩统计、排名分析
+\item \textbf{系统维护}：数据备份、系统配置
+\end{itemize}
+
+系统不包括的功能：
+\begin{itemize}
+\item 在线考试功能
+\item 教学资源管理
+\item 财务收费管理
+\item 宿舍管理
+\item 图书馆管理
+\end{itemize}
+
+\end{document} 
