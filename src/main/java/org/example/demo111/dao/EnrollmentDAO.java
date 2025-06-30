@@ -1,15 +1,20 @@
 package org.example.demo111.dao;
 
-import org.example.demo111.model.Enrollment;
-import org.example.demo111.util.DatabaseUtil;
-
 import java.math.BigDecimal;
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.HashMap;
+
+import org.example.demo111.model.Enrollment;
+import org.example.demo111.util.DatabaseUtil;
 
 /**
  * 选课管理DAO
@@ -64,26 +69,65 @@ public class EnrollmentDAO {
 
     // 新增选课
     public boolean addEnrollment(Enrollment enrollment) throws SQLException {
-        String sql = "INSERT INTO huyl_enroll10 (hyl_sno10, hyl_tcno10, hyl_escore10, hyl_egpa10, hyl_open10, hyl_enrolldate10, hyl_status10) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        System.out.println("addEnrollment: " + enrollment);
+        
+        // 构建动态SQL，只插入非null字段
+        StringBuilder sql = new StringBuilder("INSERT INTO huyl_enroll10 (hyl_sno10, hyl_tcno10");
+        StringBuilder values = new StringBuilder(" VALUES (?, ?");
+        
+        List<Object> params = new ArrayList<>();
+        params.add(enrollment.getHylSno10());
+        params.add(enrollment.getHylTcno10());
+        
+        // 只有非null字段才插入
+        if (enrollment.getHylEscore10() != null) {
+            sql.append(", hyl_escore10");
+            values.append(", ?");
+            params.add(enrollment.getHylEscore10());
+        }
+        
+        if (enrollment.getHylEgpa10() != null) {
+            sql.append(", hyl_egpa10");
+            values.append(", ?");
+            params.add(enrollment.getHylEgpa10());
+        }
+        
+        // hyl_open10字段：如果为null则使用数据库默认值true
+        if (enrollment.getHylOpen10() != null) {
+            sql.append(", hyl_open10");
+            values.append(", ?");
+            params.add(enrollment.getHylOpen10());
+        }
+        
+        if (enrollment.getHylEnrolldate10() != null) {
+            sql.append(", hyl_enrolldate10");
+            values.append(", ?");
+            params.add(new Timestamp(enrollment.getHylEnrolldate10().getTime()));
+        }
+        
+        if (enrollment.getHylStatus10() != null) {
+            sql.append(", hyl_status10");
+            values.append(", ?");
+            params.add(enrollment.getHylStatus10());
+        }
+        
+        sql.append(")").append(values).append(")");
+        
         try (Connection conn = DatabaseUtil.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setInt(1, enrollment.getHylSno10());
-            pstmt.setInt(2, enrollment.getHylTcno10());
-            pstmt.setObject(3, enrollment.getHylEscore10(), Types.INTEGER);
-            pstmt.setBigDecimal(4, enrollment.getHylEgpa10());
-            pstmt.setObject(5, enrollment.getHylOpen10(), Types.BOOLEAN);
-            if (enrollment.getHylEnrolldate10() != null) {
-                pstmt.setTimestamp(6, new Timestamp(enrollment.getHylEnrolldate10().getTime()));
-            } else {
-                pstmt.setNull(6, Types.TIMESTAMP);
+             PreparedStatement pstmt = conn.prepareStatement(sql.toString())) {
+            
+            // 设置参数
+            for (int i = 0; i < params.size(); i++) {
+                pstmt.setObject(i + 1, params.get(i));
             }
-            pstmt.setString(7, enrollment.getHylStatus10());
+            
             return pstmt.executeUpdate() > 0;
         }
     }
 
     // 删除选课
     public boolean deleteEnrollment(Integer hylSno10, Integer hylTcno10) throws SQLException {
+        System.out.println("delete " + hylSno10 + " " + hylTcno10);
         String sql = "DELETE FROM huyl_enroll10 WHERE hyl_sno10 = ? AND hyl_tcno10 = ?";
         try (Connection conn = DatabaseUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -605,5 +649,99 @@ public class EnrollmentDAO {
         
         enrollment.setHylStatus10(rs.getString("hyl_status10"));
         return enrollment;
+    }
+
+    /**
+     * 获取学生可选的教学班列表（排除已选课程，显示有余量的教学班）
+     */
+    public List<Map<String, Object>> getAvailableTeachingClasses(Integer studentId) throws SQLException {
+        List<Map<String, Object>> availableClasses = new ArrayList<>();
+        String sql = "SELECT tc.hyl_tcno10, tc.hyl_tcname10, tc.hyl_tcyear10, tc.hyl_tcterm10, " +
+                     "tc.hyl_tcrepeat10, tc.hyl_tcbatch10, tc.hyl_tcmaxstu10, tc.hyl_tccurstu10, " +
+                     "c.hyl_cno10, c.hyl_cname10, c.hyl_ccredit10, c.hyl_chour10, c.hyl_ctest10, c.hyl_ctype10, " +
+                     "t.hyl_tname10 as teacher_name, " +
+                     "v.hyl_tplace10, v.hyl_tstime10, v.hyl_tetime10, v.hyl_tweekday10 " +
+                     "FROM huyl_tclass10 tc " +
+                     "JOIN huyl_course10 c ON tc.hyl_cno10 = c.hyl_cno10 " +
+                     "LEFT JOIN huyl_teacher10 t ON tc.hyl_tno10 = t.hyl_tno10 " +
+                     "LEFT JOIN huyl_venue10 v ON tc.hyl_tcno10 = v.hyl_tcno10 " +
+                     "WHERE tc.hyl_tcno10 NOT IN (" +
+                     "    SELECT e.hyl_tcno10 FROM huyl_enroll10 e " +
+                     "    WHERE e.hyl_sno10 = ? AND e.hyl_status10 = '正常'" +
+                     ") " +
+                     "AND tc.hyl_tccurstu10 < tc.hyl_tcmaxstu10 " + // 还有余量
+                     "AND tc.hyl_tcyear10 >= 2023 " + // 只显示当前和未来学年的课程
+                     "ORDER BY tc.hyl_tcyear10 DESC, tc.hyl_tcterm10, c.hyl_cname10, tc.hyl_tcbatch10";
+                     
+        try (Connection conn = DatabaseUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, studentId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    Map<String, Object> teachingClass = new HashMap<>();
+                    teachingClass.put("tcno", rs.getInt("hyl_tcno10"));
+                    teachingClass.put("tcname", rs.getString("hyl_tcname10"));
+                    teachingClass.put("year", rs.getInt("hyl_tcyear10"));
+                    teachingClass.put("term", rs.getInt("hyl_tcterm10"));
+                    teachingClass.put("repeat", rs.getString("hyl_tcrepeat10"));
+                    teachingClass.put("batch", rs.getString("hyl_tcbatch10"));
+                    teachingClass.put("maxStudents", rs.getInt("hyl_tcmaxstu10"));
+                    teachingClass.put("currentStudents", rs.getInt("hyl_tccurstu10"));
+                    teachingClass.put("courseId", rs.getInt("hyl_cno10"));
+                    teachingClass.put("courseName", rs.getString("hyl_cname10"));
+                    teachingClass.put("credit", rs.getBigDecimal("hyl_ccredit10"));
+                    teachingClass.put("hour", rs.getInt("hyl_chour10"));
+                    teachingClass.put("testType", rs.getString("hyl_ctest10"));
+                    teachingClass.put("courseType", rs.getString("hyl_ctype10"));
+                    teachingClass.put("teacherName", rs.getString("teacher_name"));
+                    teachingClass.put("classroom", rs.getString("hyl_tplace10"));
+                    teachingClass.put("startTime", rs.getTime("hyl_tstime10"));
+                    teachingClass.put("endTime", rs.getTime("hyl_tetime10"));
+                    teachingClass.put("weekday", rs.getInt("hyl_tweekday10"));
+                    availableClasses.add(teachingClass);
+                }
+            }
+        }
+        return availableClasses;
+    }
+
+    /**
+     * 获取学生已选的教学班列表（用于退选）
+     */
+    public List<Map<String, Object>> getEnrolledTeachingClasses(Integer studentId) throws SQLException {
+        List<Map<String, Object>> enrolledClasses = new ArrayList<>();
+        String sql = "SELECT tc.hyl_tcno10, tc.hyl_tcname10, tc.hyl_tcyear10, tc.hyl_tcterm10, " +
+                     "c.hyl_cname10, c.hyl_ccredit10, c.hyl_chour10, c.hyl_ctest10, c.hyl_ctype10, " +
+                     "t.hyl_tname10 as teacher_name, e.hyl_enrolldate10, e.hyl_status10 " +
+                     "FROM huyl_enroll10 e " +
+                     "JOIN huyl_tclass10 tc ON e.hyl_tcno10 = tc.hyl_tcno10 " +
+                     "JOIN huyl_course10 c ON tc.hyl_cno10 = c.hyl_cno10 " +
+                     "LEFT JOIN huyl_teacher10 t ON tc.hyl_tno10 = t.hyl_tno10 " +
+                     "WHERE e.hyl_sno10 = ? AND e.hyl_status10 = '正常' " +
+                     "ORDER BY tc.hyl_tcyear10 DESC, tc.hyl_tcterm10, c.hyl_cname10";
+                     
+        try (Connection conn = DatabaseUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, studentId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    Map<String, Object> enrolledClass = new HashMap<>();
+                    enrolledClass.put("tcno", rs.getInt("hyl_tcno10"));
+                    enrolledClass.put("tcname", rs.getString("hyl_tcname10"));
+                    enrolledClass.put("year", rs.getInt("hyl_tcyear10"));
+                    enrolledClass.put("term", rs.getInt("hyl_tcterm10"));
+                    enrolledClass.put("courseName", rs.getString("hyl_cname10"));
+                    enrolledClass.put("credit", rs.getBigDecimal("hyl_ccredit10"));
+                    enrolledClass.put("hour", rs.getInt("hyl_chour10"));
+                    enrolledClass.put("testType", rs.getString("hyl_ctest10"));
+                    enrolledClass.put("courseType", rs.getString("hyl_ctype10"));
+                    enrolledClass.put("teacherName", rs.getString("teacher_name"));
+                    enrolledClass.put("enrollDate", rs.getTimestamp("hyl_enrolldate10"));
+                    enrolledClass.put("status", rs.getString("hyl_status10"));
+                    enrolledClasses.add(enrolledClass);
+                }
+            }
+        }
+        return enrolledClasses;
     }
 } 

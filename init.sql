@@ -746,45 +746,47 @@ conflict_count INT;
     new_end_time TIME;
     conflict_info TEXT := ''; -- 用于存储冲突课程的详细信息
 BEGIN
-    -- 先获取新选课程的时间信息
-SELECT hyl_tweekday10, hyl_tstime10, hyl_tetime10
-INTO new_weekday, new_start_time, new_end_time
-FROM huyl_venue10
-WHERE hyl_tcno10 = NEW.hyl_tcno10;
+    -- 先获取新选课程的时间信息，使用异常处理避免 "no data found" 错误
+    BEGIN
+        SELECT hyl_tweekday10, hyl_tstime10, hyl_tetime10
+        INTO new_weekday, new_start_time, new_end_time
+        FROM huyl_venue10
+        WHERE hyl_tcno10 = NEW.hyl_tcno10;
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            -- 如果没有找到时间安排记录，直接返回，不需要检查冲突
+            RETURN NEW;
+    END;
 
--- 如果新课程没有时间安排，则不需要检查冲突
-IF new_weekday IS NULL OR new_start_time IS NULL OR new_end_time IS NULL THEN
+    -- 如果新课程没有时间安排，则不需要检查冲突
+    IF new_weekday IS NULL OR new_start_time IS NULL OR new_end_time IS NULL THEN
         RETURN NEW;
-END IF;
+    END IF;
 
     -- 检查新选的课程与学生已有课程时间是否冲突
-SELECT COUNT(*),
-       STRING_AGG(
-               c.hyl_cname10 || ' (教学班ID:' || v1.hyl_tcno10 || ' 星期' || v1.hyl_tweekday10 || ' ' || v1.hyl_tstime10::TEXT || '-' || v1.hyl_tetime10::TEXT || ')',
-               ', '
-                   ORDER BY c.hyl_cname10) -- 按照课程名称排序，让错误信息更清晰
-INTO conflict_count, conflict_info
-FROM huyl_venue10 v1
-         JOIN huyl_enroll10 e ON e.hyl_tcno10 = v1.hyl_tcno10
-         JOIN huyl_tclass10 tc ON v1.hyl_tcno10 = tc.hyl_tcno10
-         JOIN huyl_course10 c ON tc.hyl_cno10 = c.hyl_cno10
-WHERE e.hyl_sno10 = NEW.hyl_sno10           -- 同一学生
-  AND v1.hyl_tcno10 != NEW.hyl_tcno10       -- 排除当前选择的课程 (对于UPDATE时，如果是修改为同一课程则不冲突)
+    SELECT COUNT(*),
+           STRING_AGG(
+                   c.hyl_cname10 || ' (教学班ID:' || v1.hyl_tcno10 || ' 星期' || v1.hyl_tweekday10 || ' ' || v1.hyl_tstime10::TEXT || '-' || v1.hyl_tetime10::TEXT || ')',
+                   ', '
+                       ORDER BY c.hyl_cname10) -- 按照课程名称排序，让错误信息更清晰
+    INTO conflict_count, conflict_info
+    FROM huyl_venue10 v1
+             JOIN huyl_enroll10 e ON e.hyl_tcno10 = v1.hyl_tcno10
+             JOIN huyl_tclass10 tc ON v1.hyl_tcno10 = tc.hyl_tcno10
+             JOIN huyl_course10 c ON tc.hyl_cno10 = c.hyl_cno10
+    WHERE e.hyl_sno10 = NEW.hyl_sno10           -- 同一学生
+      AND v1.hyl_tcno10 != NEW.hyl_tcno10       -- 排除当前选择的课程
       AND v1.hyl_tweekday10 = new_weekday       -- 同一星期几
-      AND (
-            -- 检查时间段重叠：新课程开始时间 < 已有课程结束时间 AND 新课程结束时间 > 已有课程开始时间
-            -- 这是一个标准的判断两个时间段是否有重叠的条件
-            (NEW.hyl_tcno10 != OLD.hyl_tcno10 AND NEW.hyl_sno10 = OLD.hyl_sno10) OR TG_OP = 'INSERT'
-            AND new_start_time < v1.hyl_tetime10 AND new_end_time > v1.hyl_tstime10
-          );
+      AND new_start_time < v1.hyl_tetime10      -- 时间段重叠检查
+      AND new_end_time > v1.hyl_tstime10;       -- 时间段重叠检查
 
--- 如果发现冲突，抛出异常
-IF conflict_count > 0 THEN
+    -- 如果发现冲突，抛出异常
+    IF conflict_count > 0 THEN
         RAISE EXCEPTION '课程时间冲突！您选择的课程在星期%（%-%）与已选课程时间重叠，冲突课程：% 。请选择其他时间的课程。',
             new_weekday, new_start_time::TEXT, new_end_time::TEXT, conflict_info;
-END IF;
+    END IF;
 
-RETURN NEW;
+    RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -805,29 +807,54 @@ END;
 $$ LANGUAGE plpgsql;
 
 
--- 2.7 自动更新课程平均成绩函数
+-- 2.7 自动更新课程平均成绩函数（修复版本）
 -- 逻辑：当选课成绩插入、更新或删除时，自动计算并更新该课程的平均分。
+DROP FUNCTION IF EXISTS update_course_avg_score() CASCADE;
 CREATE OR REPLACE FUNCTION update_course_avg_score()
     RETURNS TRIGGER AS $$
 DECLARE
-avg_score DECIMAL(5,2);
+    avg_score DECIMAL(5,2);
     course_id INT;
+    tcno_to_use INT;
 BEGIN
+    -- 根据操作类型确定教学班号
+    IF TG_OP = 'DELETE' THEN
+        tcno_to_use := OLD.hyl_tcno10;
+    ELSE
+        tcno_to_use := NEW.hyl_tcno10;
+    END IF;
+
     -- 确定需要更新平均分的课程ID
-    course_id := (SELECT hyl_cno10 FROM huyl_tclass10 WHERE hyl_tcno10 = COALESCE(NEW.hyl_tcno10, OLD.hyl_tcno10));
+    SELECT hyl_cno10 INTO course_id 
+    FROM huyl_tclass10 
+    WHERE hyl_tcno10 = tcno_to_use;
+
+    -- 如果找不到课程ID，直接返回
+    IF course_id IS NULL THEN
+        IF TG_OP = 'DELETE' THEN
+            RETURN OLD;
+        ELSE
+            RETURN NEW;
+        END IF;
+    END IF;
 
     -- 计算该课程的平均分（只考虑有成绩的记录）
-SELECT AVG(e.hyl_escore10) INTO avg_score
-FROM huyl_enroll10 e
-         JOIN huyl_tclass10 tc ON e.hyl_tcno10 = tc.hyl_tcno10
-WHERE tc.hyl_cno10 = course_id AND e.hyl_escore10 IS NOT NULL;
+    SELECT AVG(e.hyl_escore10) INTO avg_score
+    FROM huyl_enroll10 e
+    JOIN huyl_tclass10 tc ON e.hyl_tcno10 = tc.hyl_tcno10
+    WHERE tc.hyl_cno10 = course_id AND e.hyl_escore10 IS NOT NULL;
 
--- 更新课程表中的平均成绩
-UPDATE huyl_course10
-SET hyl_cavgscore10 = COALESCE(avg_score, 0.00) -- 如果没有成绩，平均分设为0
-WHERE hyl_cno10 = course_id;
+    -- 更新课程表中的平均成绩
+    UPDATE huyl_course10
+    SET hyl_cavgscore10 = COALESCE(avg_score, 0.00) -- 如果没有成绩，平均分设为0
+    WHERE hyl_cno10 = course_id;
 
-RETURN NEW;
+    -- 根据操作类型返回相应的记录
+    IF TG_OP = 'DELETE' THEN
+        RETURN OLD;
+    ELSE
+        RETURN NEW;
+    END IF;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -844,8 +871,12 @@ DECLARE
     calculated_gpa DECIMAL(4,3);
     student_id_to_update INT;
 BEGIN
-    -- 确定需要更新GPA的学生ID (NEW 或 OLD)
-    student_id_to_update := COALESCE(NEW.hyl_sno10, OLD.hyl_sno10);
+    -- 根据操作类型确定学生ID
+    IF TG_OP = 'DELETE' THEN
+        student_id_to_update := OLD.hyl_sno10;
+    ELSE
+        student_id_to_update := NEW.hyl_sno10;
+    END IF;
 
     -- 计算该学生所有已及格课程的总学分和总绩点
     -- 注意：这里假设 hyl_egpa10 已经是该课程的绩点
@@ -871,7 +902,12 @@ BEGIN
     SET hyl_sgpa10 = calculated_gpa
     WHERE hyl_sno10 = student_id_to_update;
 
-    RETURN NEW; -- 返回NEW记录
+    -- 根据操作类型返回相应的记录
+    IF TG_OP = 'DELETE' THEN
+        RETURN OLD;
+    ELSE
+        RETURN NEW;
+    END IF;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -1029,9 +1065,10 @@ CREATE TRIGGER tr_delete_teacher_classes
     EXECUTE PROCEDURE delete_teacher_related_classes();
 
 
--- 3.7 触发器：自动更新课程平均成绩
+-- 3.7 触发器：自动更新课程平均成绩（重新创建）
+DROP TRIGGER IF EXISTS tr_update_course_avg_score ON huyl_enroll10;
 CREATE TRIGGER tr_update_course_avg_score
-    AFTER INSERT OR UPDATE OR DELETE ON huyl_enroll10 -- 增加DELETE操作的触发
+    AFTER INSERT OR UPDATE OR DELETE ON huyl_enroll10 -- 支持DELETE操作的触发
     FOR EACH ROW EXECUTE PROCEDURE update_course_avg_score();
 
 
@@ -1974,67 +2011,126 @@ VALUES ('数据库原理-1班', 2023, 1, '非重修班', '01', 50, 0, 400001, 70
        ('线性代数-1班', 2023, 2, '非重修班', '01', 50, 0, 400007, 700004),
        ('微观经济学-1班', 2023, 1, '非重修班', '01', 50, 0, 400008, 700007),
        ('管理学原理-1班', 2023, 2, '非重修班', '01', 50, 0, 400009, 700007),
-       ('有机化学-1班', 2023, 1, '非重修班', '01', 50, 0, 400010, 700006);
+       ('有机化学-1班', 2023, 1, '非重修班', '01', 50, 0, 400010, 700006),
+       -- 添加一个会与高等数学-1班时间冲突的教学班
+       ('计算机网络-1班', 2023, 1, '非重修班', '02', 50, 0, 400001, 700003);
 
 -- 学生（20名，分布不同专业、班级、性别、地区）
 INSERT INTO huyl_student10 (hyl_sage10, hyl_sname10, hyl_sbirth10, hyl_splace10, hyl_ssex10, hyl_screditsum10,
                             hyl_semail10, hyl_sphone10, hyl_senrolldate10, hyl_sstatus10, hyl_sgpa10, hyl_srank10,
                             hyl_mno10, hyl_acno10)
-VALUES (20, '小明', '2003-05-01', '北京', '男', 0, 'xiaoming@univ.edu', '13900000001', '2022-09-01', '在读', 0, 0,
+VALUES (20, '小明', '2003-05-01', '北京市', '男', 0, 'xiaoming@univ.edu', '13900000001', '2022-09-01', '在读', 0, 0,
         200001, 300001),
-       (21, '小红', '2002-08-12', '上海', '女', 0, 'xiaohong@univ.edu', '13900000002', '2022-09-01', '在读', 0, 0,
+       (21, '小红', '2002-08-12', '上海市', '女', 0, 'xiaohong@univ.edu', '13900000002', '2022-09-01', '在读', 0, 0,
         200001, 300001),
-       (22, '小刚', '2001-11-23', '广州', '男', 0, 'xiaogang@univ.edu', '13900000003', '2022-09-01', '在读', 0, 0,
+       (22, '小刚', '2001-11-23', '广东省', '男', 0, 'xiaogang@univ.edu', '13900000003', '2022-09-01', '在读', 0, 0,
         200003, 300004),
-       (19, '李雷', '2004-02-14', '深圳', '男', 0, 'lilei@univ.edu', '13900000004', '2023-09-01', '在读', 0, 0, 200002,
+       (19, '李雷', '2004-02-14', '广东省', '男', 0, 'lilei@univ.edu', '13900000004', '2023-09-01', '在读', 0, 0, 200002,
         300003),
-       (20, '韩梅梅', '2003-07-21', '南京', '女', 0, 'hanmeimei@univ.edu', '13900000005', '2022-09-01', '在读', 0, 0,
+       (20, '韩梅梅', '2003-07-21', '江苏省', '女', 0, 'hanmeimei@univ.edu', '13900000005', '2022-09-01', '在读', 0, 0,
         200001, 300001),
-       (21, '王芳', '2002-10-10', '成都', '女', 0, 'wangfang@univ.edu', '13900000006', '2022-09-01', '在读', 0, 0,
+       (21, '王芳', '2002-10-10', '四川省', '女', 0, 'wangfang@univ.edu', '13900000006', '2022-09-01', '在读', 0, 0,
         200003, 300004),
-       (22, '赵强', '2001-12-12', '重庆', '男', 0, 'zhaoqiang@univ.edu', '13900000007', '2022-09-01', '在读', 0, 0,
+       (22, '赵强', '2001-12-12', '重庆市', '男', 0, 'zhaoqiang@univ.edu', '13900000007', '2022-09-01', '在读', 0, 0,
         200004, 300005),
-       (20, '孙丽', '2003-03-03', '武汉', '女', 0, 'sunli@univ.edu', '13900000008', '2022-09-01', '在读', 0, 0, 200005,
+       (20, '孙丽', '2003-03-03', '湖北省', '女', 0, 'sunli@univ.edu', '13900000008', '2022-09-01', '在读', 0, 0, 200005,
         300006),
-       (21, '陈晨', '2002-06-06', '西安', '男', 0, 'chenchen@univ.edu', '13900000009', '2022-09-01', '在读', 0, 0,
+       (21, '陈晨', '2002-06-06', '陕西省', '男', 0, 'chenchen@univ.edu', '13900000009', '2022-09-01', '在读', 0, 0,
         200006, 300007),
-       (22, '林林', '2001-09-09', '杭州', '女', 0, 'linlin@univ.edu', '13900000010', '2022-09-01', '在读', 0, 0,
+       (22, '林林', '2001-09-09', '浙江省', '女', 0, 'linlin@univ.edu', '13900000010', '2022-09-01', '在读', 0, 0,
         200007, 300008),
-       (20, '周舟', '2003-11-11', '苏州', '男', 0, 'zhouzhou@univ.edu', '13900000011', '2022-09-01', '在读', 0, 0,
+       (20, '周舟', '2003-11-11', '江苏省', '男', 0, 'zhouzhou@univ.edu', '13900000011', '2022-09-01', '在读', 0, 0,
         200008, 300009),
-       (21, '吴伟', '2002-04-04', '青岛', '男', 0, 'wuwei@univ.edu', '13900000012', '2022-09-01', '在读', 0, 0,
+       (21, '吴伟', '2002-04-04', '山东省', '男', 0, 'wuwei@univ.edu', '13900000012', '2022-09-01', '在读', 0, 0,
         200009, 300010),
-       (22, '郑真', '2001-07-07', '大连', '女', 0, 'zhengzhen@univ.edu', '13900000013', '2022-09-01', '在读', 0, 0,
+       (22, '郑真', '2001-07-07', '辽宁省', '女', 0, 'zhengzhen@univ.edu', '13900000013', '2022-09-01', '在读', 0, 0,
         200010, 300011),
-       (20, '冯峰', '2003-08-08', '合肥', '男', 0, 'fengfeng@univ.edu', '13900000014', '2022-09-01', '在读', 0, 0,
+       (20, '冯峰', '2003-08-08', '安徽省', '男', 0, 'fengfeng@univ.edu', '13900000014', '2022-09-01', '在读', 0, 0,
         200011, 300012),
-       (21, '褚楚', '2002-03-03', '南昌', '女', 0, 'zhuchu@univ.edu', '13900000015', '2022-09-01', '在读', 0, 0, 200012,
+       (21, '褚楚', '2002-03-03', '江西省', '女', 0, 'zhuchu@univ.edu', '13900000015', '2022-09-01', '在读', 0, 0, 200012,
         300013),
-       (22, '卫伟', '2001-05-05', '厦门', '男', 0, 'weiwei@univ.edu', '13900000016', '2022-09-01', '在读', 0, 0,
+       (22, '卫伟', '2001-05-05', '福建省', '男', 0, 'weiwei@univ.edu', '13900000016', '2022-09-01', '在读', 0, 0,
         200013, 300014),
-       (20, '蒋静', '2003-12-12', '天津', '女', 0, 'jiangjing@univ.edu', '13900000017', '2022-09-01', '在读', 0, 0,
+       (20, '蒋静', '2003-12-12', '天津市', '女', 0, 'jiangjing@univ.edu', '13900000017', '2022-09-01', '在读', 0, 0,
         200001, 300001),
-       (21, '沈深', '2002-01-01', '深圳', '男', 0, 'shenshen@univ.edu', '13900000018', '2022-09-01', '在读', 0, 0,
+       (21, '沈深', '2002-01-01', '广东省', '男', 0, 'shenshen@univ.edu', '13900000018', '2022-09-01', '在读', 0, 0,
         200002, 300003),
-       (22, '韩寒', '2001-02-02', '哈尔滨', '女', 0, 'hanhan@univ.edu', '13900000019', '2022-09-01', '在读', 0, 0,
+       (22, '韩寒', '2001-02-02', '黑龙江省', '女', 0, 'hanhan@univ.edu', '13900000019', '2022-09-01', '在读', 0, 0,
         200003, 300004),
-       (20, '吕律', '2003-03-03', '兰州', '男', 0, 'lvlu@univ.edu', '13900000020', '2022-09-01', '在读', 0, 0, 200004,
+       (20, '吕律', '2003-03-03', '甘肃省', '男', 0, 'lvlu@univ.edu', '13900000020', '2022-09-01', '在读', 0, 0, 200004,
         300005);
 
 -- 上课时间地点
 INSERT INTO huyl_venue10 (hyl_tplace10, hyl_tstime10, hyl_tetime10, hyl_tweekday10, hyl_tweeks10, hyl_tcno10)
 VALUES ('教一-101', '08:00', '09:40', 1, '1-16周', 500001),
        ('教一-102', '10:00', '11:40', 3, '1-16周', 500002),
-       ('教二-201', '14:00', '15:40', 5, '1-16周', 500003);
-
--- 选课
-INSERT INTO huyl_enroll10 (hyl_escore10, hyl_egpa10, hyl_open10, hyl_enrolldate10, hyl_status10, hyl_tcno10, hyl_sno10)
-VALUES (85, 4.0, true, now(), '正常', 500001, 600001),
-       (90, 4.5, true, now(), '正常', 500002, 600002),
-       (78, 3.5, true, now(), '正常', 500003, 600003);
+       ('教二-201', '14:00', '15:40', 5, '1-16周', 500003),
+       -- 为剩余教学班添加上课时间地点
+       ('教一-103', '08:00', '09:40', 2, '1-16周', 500004), -- 英语写作-1班，周二上午
+       ('教三-101', '10:00', '11:40', 1, '1-16周', 500005), -- 高等数学-1班，周一上午
+       ('教三-102', '14:00', '15:40', 2, '1-16周', 500006), -- 大学物理-1班，周二下午
+       ('实验楼-201', '16:00', '17:40', 4, '1-16周', 500007), -- C语言程序设计-1班，周四下午
+       ('教二-202', '08:00', '09:40', 3, '1-16周', 500008), -- 线性代数-1班，周三上午
+       ('教四-101', '10:00', '11:40', 5, '1-16周', 500009), -- 微观经济学-1班，周五上午
+       ('教四-102', '14:00', '15:40', 4, '1-16周', 500010), -- 管理学原理-1班，周四下午
+       ('化学楼-301', '16:00', '17:40', 3, '1-16周', 500011), -- 有机化学-1班，周三下午
+       -- 添加与高等数学-1班时间冲突的计算机网络-1班（周一 10:30-12:10，与周一10:00-11:40重叠）
+       ('教五-201', '10:30', '12:10', 1, '1-16周', 500012); -- 计算机网络-1班，周一上午（时间冲突）
 
 -- 培养方案
 INSERT INTO huyl_cultivate10 (hyl_mno10, hyl_cno10, hyl_cterm10, hyl_cmandatory10)
 VALUES (200001, 400001, 3, true),
        (200001, 400002, 4, true),
        (200003, 400003, 2, true);
+
+-- ================== 4. 插入选课数据 ==================
+-- 为学生安排选课，涵盖不同成绩分布、选课状态等情况
+
+-- 第一批：计科专业学生的选课（学号600001-600005, 600017）
+INSERT INTO huyl_enroll10 (hyl_escore10, hyl_egpa10, hyl_open10, hyl_enrolldate10, hyl_status10, hyl_tcno10, hyl_sno10)
+VALUES
+-- 学生600001 (小明) 的选课
+(85, NULL, true, '2023-02-15 10:00:00', '正常', 500001, 600001), -- 数据库原理-1班
+(78, NULL, true, '2023-02-15 10:05:00', '正常', 500003, 600001), -- 操作系统-1班  
+(92, NULL, true, '2023-02-15 10:10:00', '正常', 500005, 600001), -- 高等数学-1班
+(88, NULL, true, '2023-08-20 09:00:00', '正常', 500007, 600001), -- C语言程序设计-1班
+(76, NULL, true, '2023-08-20 09:05:00', '正常', 500008, 600001), -- 线性代数-1班
+
+-- 学生600002 (小红) 的选课
+(91, NULL, true, '2023-02-15 10:15:00', '正常', 500001, 600002), -- 数据库原理-1班
+(83, NULL, true, '2023-02-15 10:20:00', '正常', 500003, 600002), -- 操作系统-1班
+(87, NULL, true, '2023-02-15 10:25:00', '正常', 500005, 600002), -- 高等数学-1班
+(94, NULL, true, '2023-08-20 09:10:00', '正常', 500007, 600002), -- C语言程序设计-1班
+(89, NULL, false, '2023-08-20 09:15:00', '正常', 500008, 600002), -- 线性代数-1班（成绩未开放）
+
+-- 学生600003 (小刚) 的选课 - 人工智能专业
+(72, NULL, true, '2023-02-15 11:00:00', '正常', 500002, 600003), -- 数据库原理-2班
+(68, NULL, true, '2023-02-15 11:05:00', '正常', 500004, 600003), -- 英语写作-1班
+(95, NULL, true, '2023-02-15 11:10:00', '正常', 500005, 600003), -- 高等数学-1班
+(81, NULL, true, '2023-08-20 09:20:00', '正常', 500007, 600003), -- C语言程序设计-1班
+
+-- 学生600004 (李雷) 的选课 - 软件工程专业
+(79, NULL, true, '2023-02-15 11:15:00', '正常', 500001, 600004), -- 数据库原理-1班
+(84, NULL, true, '2023-02-15 11:20:00', '正常', 500003, 600004), -- 操作系统-1班
+(90, NULL, true, '2023-02-15 11:25:00', '正常', 500005, 600004), -- 高等数学-1班
+(77, NULL, true, '2023-08-20 09:25:00', '正常', 500007, 600004), -- C语言程序设计-1班
+(86, NULL, true, '2023-08-20 09:30:00', '正常', 500008, 600004), -- 线性代数-1班
+
+-- 学生600005 (韩梅梅) 的选课 - 计科专业
+(88, NULL, true, '2023-02-15 12:00:00', '正常', 500002, 600005), -- 数据库原理-2班
+(75, NULL, true, '2023-02-15 12:05:00', '正常', 500003, 600005), -- 操作系统-1班
+(93, NULL, true, '2023-02-15 12:10:00', '正常', 500005, 600005), -- 高等数学-1班
+(82, NULL, true, '2023-08-20 09:35:00', '正常', 500007, 600005), -- C语言程序设计-1班
+
+-- 学生600017 (蒋静) 的选课 - 计科专业
+(67, NULL, true, '2023-02-15 14:00:00', '正常', 500001, 600017), -- 数据库原理-1班
+(73, NULL, true, '2023-02-15 14:05:00', '正常', 500003, 600017), -- 操作系统-1班
+(85, NULL, true, '2023-02-15 14:10:00', '正常', 500005, 600017), -- 高等数学-1班
+(71, NULL, false, '2023-08-20 10:00:00', '正常', 500007, 600017), -- C语言程序设计-1班（成绩未开放）
+
+-- 第二批：其他专业学生的选课
+-- 学生600006 (王芳) - 人工智能专业
+(86, NULL, true, '2023-02-15 15:00:00', '正常', 500004, 600006), -- 英语写作-1班
+(92, NULL, true, '2023-02-15 15:05:00', '正常', 500005, 600006), -- 高等数学-1班
+(78, NULL, true, '2023-02-15 15:10:00', '正常', 500006, 600006), -- 大学物理-1班
+(84, NULL, true, '2023-08-20 10:05:00', '正常', 500008, 600006); -- 线性代数-1班

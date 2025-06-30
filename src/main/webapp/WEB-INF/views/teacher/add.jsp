@@ -126,11 +126,6 @@
             
             <div class="form-row">
                 <div class="form-group">
-                    <label for="hylTage10">年龄 <span class="required">*</span></label>
-                    <input type="number" id="hylTage10" name="hylTage10" 
-                           value="${teacher.hylTage10}" min="22" max="70" required>
-                </div>
-                <div class="form-group">
                     <label for="hylTbirth10">出生日期</label>
                     <input type="date" id="hylTbirth10" name="hylTbirth10" 
                            value="${teacher.hylTbirth10}">

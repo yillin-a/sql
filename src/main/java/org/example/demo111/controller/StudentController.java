@@ -1,18 +1,21 @@
 package org.example.demo111.controller;
 
+import java.io.IOException;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+import org.example.demo111.model.Student;
+import org.example.demo111.service.StudentService;
+
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.example.demo111.model.Student;
-import org.example.demo111.service.StudentService;
-
-import java.io.IOException;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.List;
-import java.util.Map;
 
 /**
  * 学生管理控制器
@@ -35,6 +38,8 @@ public class StudentController extends HttpServlet {
         try {
             if (pathInfo == null || "/".equals(pathInfo) || "/list".equals(pathInfo)) {
                 listStudents(request, response);
+            } else if ("/add".equals(pathInfo)) {
+                showAddStudentForm(request, response);
             } else if ("/view".equals(pathInfo)) {
                 viewStudent(request, response);
             } else if ("/edit".equals(pathInfo)) {
@@ -85,6 +90,14 @@ public class StudentController extends HttpServlet {
         List<Student> students = studentService.getAllStudents();
         request.setAttribute("students", students);
         request.getRequestDispatcher("/WEB-INF/views/student/list.jsp").forward(request, response);
+    }
+    
+    /**
+     * 显示添加学生表单
+     */
+    private void showAddStudentForm(HttpServletRequest request, HttpServletResponse response) 
+            throws ServletException, IOException {
+        request.getRequestDispatcher("/WEB-INF/views/student/add.jsp").forward(request, response);
     }
     
     /**
@@ -304,17 +317,17 @@ public class StudentController extends HttpServlet {
             student.setHylSno10(Integer.parseInt(studentIdStr));
         }
         
-        String ageStr = request.getParameter("hylSage10");
-        if (ageStr != null && !ageStr.trim().isEmpty()) {
-            student.setHylSage10(Integer.parseInt(ageStr));
-        }
+
         
         student.setHylSname10(request.getParameter("hylSname10"));
         
         String birthStr = request.getParameter("hylSbirth10");
         if (birthStr != null && !birthStr.trim().isEmpty()) {
             try {
-                student.setHylSbirth10(dateFormat.parse(birthStr));
+                Date birthDate = dateFormat.parse(birthStr);
+                student.setHylSbirth10(birthDate);
+                // 根据出生日期自动计算年龄
+                student.setHylSage10(calculateAge(birthDate));
             } catch (ParseException e) {
                 // 忽略日期解析错误
             }
@@ -349,5 +362,28 @@ public class StudentController extends HttpServlet {
         }
         
         return student;
+    }
+    
+    /**
+     * 根据出生日期计算年龄
+     */
+    private int calculateAge(Date birthDate) {
+        if (birthDate == null) {
+            return 0;
+        }
+        
+        Calendar birth = Calendar.getInstance();
+        birth.setTime(birthDate);
+        
+        Calendar now = Calendar.getInstance();
+        
+        int age = now.get(Calendar.YEAR) - birth.get(Calendar.YEAR);
+        
+        // 如果还没过生日，年龄减1
+        if (now.get(Calendar.DAY_OF_YEAR) < birth.get(Calendar.DAY_OF_YEAR)) {
+            age--;
+        }
+        
+        return age;
     }
 } 

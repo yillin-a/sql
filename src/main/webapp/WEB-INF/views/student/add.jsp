@@ -185,13 +185,6 @@
                 
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="hylSage10" class="required">年龄</label>
-                        <input type="number" id="hylSage10" name="hylSage10" value="${student.hylSage10}" 
-                               min="16" max="35" required placeholder="16-35岁">
-                        <div class="help-text">年龄范围：16-35岁</div>
-                    </div>
-                    
-                    <div class="form-group">
                         <label for="hylSbirth10" class="required">出生日期</label>
                         <input type="date" id="hylSbirth10" name="hylSbirth10" value="${student.hylSbirth10}" required>
                         <div class="help-text">请选择准确的出生日期</div>
@@ -298,12 +291,7 @@
                 }
             });
             
-            // 验证年龄
-            const age = document.getElementById('hylSage10').value;
-            if (age && (age < 16 || age > 35)) {
-                document.getElementById('hylSage10').classList.add('validation-error');
-                isValid = false;
-            }
+
             
             // 验证邮箱格式
             const email = document.getElementById('hylSemail10').value;
@@ -335,7 +323,7 @@
             
             if (!isValid) {
                 e.preventDefault();
-                alert('请检查表单中的错误信息！\n\n必填字段：姓名、性别、年龄、出生日期、籍贯、专业、班级\n可选字段：邮箱、手机号码、备注');
+                alert('请检查表单中的错误信息！\n\n必填字段：姓名、性别、出生日期、籍贯、专业、班级\n可选字段：邮箱、手机号码、备注');
             }
         });
         
@@ -357,9 +345,7 @@
                     this.classList.add('validation-error');
                 }
                 
-                if (this.id === 'hylSage10' && this.value && (this.value < 16 || this.value > 35)) {
-                    this.classList.add('validation-error');
-                }
+
             });
             
             field.addEventListener('input', function() {
@@ -369,21 +355,7 @@
             });
         });
         
-        // 年龄和出生日期联动
-        document.getElementById('hylSbirth10').addEventListener('change', function() {
-            const birthDate = new Date(this.value);
-            const today = new Date();
-            const age = today.getFullYear() - birthDate.getFullYear();
-            const monthDiff = today.getMonth() - birthDate.getMonth();
-            
-            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-                age--;
-            }
-            
-            if (age >= 16 && age <= 35) {
-                document.getElementById('hylSage10').value = age;
-            }
-        });
+
     </script>
 </body>
 </html> 

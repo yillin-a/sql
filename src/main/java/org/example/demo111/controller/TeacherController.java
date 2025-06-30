@@ -1,23 +1,26 @@
 package org.example.demo111.controller;
 
+import java.io.IOException;
+import java.sql.SQLException;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+import org.example.demo111.dao.FacultyDAO;
+import org.example.demo111.model.Teacher;
+import org.example.demo111.model.User;
+import org.example.demo111.service.CourseService;
+import org.example.demo111.service.TeacherService;
+
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.example.demo111.model.Teacher;
-import org.example.demo111.service.TeacherService;
-import org.example.demo111.dao.FacultyDAO;
-import org.example.demo111.model.User;
-import org.example.demo111.service.CourseService;
-
-import java.io.IOException;
-import java.sql.SQLException;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.List;
-import java.util.Map;
-import java.util.ArrayList;
 
 /**
  * 教师管理控制器
@@ -361,9 +364,7 @@ public class TeacherController extends HttpServlet {
         }
 
         teacher.setHylTname10(request.getParameter("hylTname10"));
-        if (request.getParameter("hylTage10") != null && !request.getParameter("hylTage10").isEmpty()) {
-            teacher.setHylTage10(Integer.parseInt(request.getParameter("hylTage10")));
-        }
+
         teacher.setHylTsex10(request.getParameter("hylTsex10"));
         teacher.setHylTtitle10(request.getParameter("hylTtitle10"));
         teacher.setHylTemail10(request.getParameter("hylTemail10"));
@@ -373,6 +374,8 @@ public class TeacherController extends HttpServlet {
             try {
                 java.util.Date utilDate = dateFormat.parse(birthDateStr);
                 teacher.setHylTbirth10(new java.sql.Date(utilDate.getTime()));
+                // 根据出生日期自动计算年龄
+                teacher.setHylTage10(calculateAge(utilDate));
             } catch (ParseException e) {
                 // handle parsing error, maybe log it or set a default
                 teacher.setHylTbirth10(null);
@@ -385,5 +388,28 @@ public class TeacherController extends HttpServlet {
         teacher.setHylTstatus10(request.getParameter("hylTstatus10"));
         
         return teacher;
+    }
+    
+    /**
+     * 根据出生日期计算年龄
+     */
+    private int calculateAge(Date birthDate) {
+        if (birthDate == null) {
+            return 0;
+        }
+        
+        Calendar birth = Calendar.getInstance();
+        birth.setTime(birthDate);
+        
+        Calendar now = Calendar.getInstance();
+        
+        int age = now.get(Calendar.YEAR) - birth.get(Calendar.YEAR);
+        
+        // 如果还没过生日，年龄减1
+        if (now.get(Calendar.DAY_OF_YEAR) < birth.get(Calendar.DAY_OF_YEAR)) {
+            age--;
+        }
+        
+        return age;
     }
 }

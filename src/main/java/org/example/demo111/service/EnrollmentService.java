@@ -1,13 +1,13 @@
 package org.example.demo111.service;
 
-import org.example.demo111.dao.EnrollmentDAO;
-import org.example.demo111.model.Enrollment;
-import org.example.demo111.util.GPAConverter;
-
 import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
+
+import org.example.demo111.dao.EnrollmentDAO;
+import org.example.demo111.model.Enrollment;
+import org.example.demo111.util.GPAConverter;
 
 /**
  * 选课成绩业务逻辑服务类
@@ -178,16 +178,13 @@ public class EnrollmentService {
             return false;
         }
         
-        if (enrollment.getHylSno10() == null) {
+        if (enrollment.getHylSno10() == null || enrollment.getHylTcno10() == null) {
             return false;
         }
         
-        if (enrollment.getHylTcno10() == null) {
-            return false;
-        }
-        
-        if (enrollment.getHylEscore10() != null && !validateScore(enrollment.getHylEscore10())) {
-            return false;
+        // 验证成绩
+        if (enrollment.getHylEscore10() != null) {
+            return validateScore(enrollment.getHylEscore10());
         }
         
         return true;
@@ -370,5 +367,75 @@ public class EnrollmentService {
     
     public Enrollment getEnrollmentByIds(int studentId, int teachingClassId) throws SQLException {
         return enrollmentDAO.findByStudentIdAndTeachingClassId(studentId, teachingClassId);
+    }
+
+    /**
+     * 获取学生可选的教学班列表
+     */
+    public List<Map<String, Object>> getAvailableTeachingClasses(Integer studentId) {
+        try {
+            return enrollmentDAO.getAvailableTeachingClasses(studentId);
+        } catch (SQLException e) {
+            throw new RuntimeException("获取可选教学班失败", e);
+        }
+    }
+
+    /**
+     * 获取学生已选的教学班列表
+     */
+    public List<Map<String, Object>> getEnrolledTeachingClasses(Integer studentId) {
+        try {
+            return enrollmentDAO.getEnrolledTeachingClasses(studentId);
+        } catch (SQLException e) {
+            throw new RuntimeException("获取已选教学班失败", e);
+        }
+    }
+
+    /**
+     * 学生选课（选择教学班）
+     */
+    public boolean selectCourse(Integer studentId, Integer teachingClassId) {
+        try {
+            // 检查是否已经选过这个教学班
+            Enrollment existingEnrollment = enrollmentDAO.findByStudentAndCourse(studentId, teachingClassId);
+            if (existingEnrollment != null) {
+                throw new RuntimeException("您已经选择了这个教学班");
+            }
+
+            // 创建新的选课记录
+            Enrollment enrollment = new Enrollment();
+            enrollment.setHylSno10(studentId);
+            enrollment.setHylTcno10(teachingClassId);
+            enrollment.setHylStatus10("正常");
+            enrollment.setHylOpen10(false); // 成绩默认不开放
+            enrollment.setHylEnrolldate10(new java.util.Date());
+
+            return enrollmentDAO.addEnrollment(enrollment);
+        } catch (SQLException e) {
+            throw new RuntimeException("选课失败: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 学生退选课程
+     */
+    public boolean dropCourse(Integer studentId, Integer teachingClassId) {
+        try {
+            // 检查选课记录是否存在
+            Enrollment enrollment = enrollmentDAO.findByStudentAndCourse(studentId, teachingClassId);
+            if (enrollment == null) {
+                throw new RuntimeException("您没有选择这个教学班，无法退选");
+            }
+
+            // 检查是否已经有成绩，如果有成绩则不能退选
+            if (enrollment.getHylEscore10() != null && enrollment.getHylEscore10() > 0) {
+                throw new RuntimeException("该课程已有成绩，无法退选");
+            }
+
+            System.out.println("Before calling enrollmentDAO.deleteEnrollment");
+            return enrollmentDAO.deleteEnrollment(studentId, teachingClassId);
+        } catch (SQLException e) {
+            throw new RuntimeException("退选失败: " + e.getMessage(), e);
+        }
     }
 } 

@@ -303,6 +303,7 @@ public class EnrollmentController extends HttpServlet {
             throws ServletException, IOException {
         try {
             Enrollment enrollment = parseEnrollmentFromRequest(request);
+//            System.out.println(enrollment);
 
             boolean success = enrollmentService.updateEnrollment(enrollment);
 
