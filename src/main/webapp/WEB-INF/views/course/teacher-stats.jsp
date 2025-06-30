@@ -202,7 +202,7 @@
                         <p class="subtitle">位教师</p>
                     </div>
                     <div class="stat-card">
-                        <h4>📚 课程总数</h4>
+                        <h4>📚 教学班总数</h4>
                         <p class="value">
                             <c:set var="totalCourses" value="0"/>
                             <c:forEach var="stat" items="${teacherStats}">
@@ -210,7 +210,7 @@
                             </c:forEach>
                             ${totalCourses}
                         </p>
-                        <p class="subtitle">门课程</p>
+                        <p class="subtitle">个教学班</p>
                     </div>
                     <div class="stat-card">
                         <h4>🎓 选课总人数</h4>
