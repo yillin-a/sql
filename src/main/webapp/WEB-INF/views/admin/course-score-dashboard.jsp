@@ -203,16 +203,6 @@
                 <p class="subtitle">个教学班</p>
             </div>
             <div class="stat-card">
-                <h4>🎓 选课总人数</h4>
-                <p class="value">
-                    <c:choose>
-                        <c:when test="${not empty overallStats}">${overallStats.totalStudents}</c:when>
-                        <c:otherwise>0</c:otherwise>
-                    </c:choose>
-                </p>
-                <p class="subtitle">人次</p>
-            </div>
-            <div class="stat-card">
                 <h4>📈 总体平均分</h4>
                 <p class="value">
                     <c:choose>
