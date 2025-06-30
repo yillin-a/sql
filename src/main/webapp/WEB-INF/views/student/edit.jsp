@@ -86,13 +86,27 @@
             
             <div class="form-row">
                 <div class="form-group">
-                    <label for="hylMno10">专业编号 *</label>
-                    <input type="number" id="hylMno10" name="hylMno10" value="${student.hylMno10}" required>
+                    <label for="hylMno10">专业 *</label>
+                    <select id="hylMno10" name="hylMno10" required>
+                        <option value="">请选择专业</option>
+                        <c:forEach var="major" items="${majors}">
+                            <option value="${major.hylMno10}" ${student.hylMno10 == major.hylMno10 ? 'selected' : ''}>
+                                ${major.hylMno10} - ${major.hylMname10} (${major.facultyName})
+                            </option>
+                        </c:forEach>
+                    </select>
                 </div>
                 
                 <div class="form-group">
-                    <label for="hylAcno10">班级编号 *</label>
-                    <input type="number" id="hylAcno10" name="hylAcno10" value="${student.hylAcno10}" required>
+                    <label for="hylAcno10">行政班 *</label>
+                    <select id="hylAcno10" name="hylAcno10" required>
+                        <option value="">请选择行政班</option>
+                        <c:forEach var="aClass" items="${aClasses}">
+                            <option value="${aClass.hylAcno10}" ${student.hylAcno10 == aClass.hylAcno10 ? 'selected' : ''}>
+                                ${aClass.hylAcno10} - ${aClass.hylAcname10} (${aClass.majorName} ${aClass.hylAcyear10}级)
+                            </option>
+                        </c:forEach>
+                    </select>
                 </div>
             </div>
             

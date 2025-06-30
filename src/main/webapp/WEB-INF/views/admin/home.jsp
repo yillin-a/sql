@@ -212,6 +212,21 @@
             <p>管理教师信息，查看教师任课安排</p>
         </a>
         
+        <a href="${pageContext.request.contextPath}/admin/teaching-class/list" class="nav-card">
+            <h3>🏫 教学班管理</h3>
+            <p>管理教学班信息，安排课程班次</p>
+        </a>
+        
+        <a href="${pageContext.request.contextPath}/admin/major/list" class="nav-card">
+            <h3>🎓 专业管理</h3>
+            <p>管理专业信息，设置学位类型和学制</p>
+        </a>
+        
+        <a href="${pageContext.request.contextPath}/admin/aclass/list" class="nav-card">
+            <h3>🏫 行政班管理</h3>
+            <p>管理行政班信息，设置班级容量和专业归属</p>
+        </a>
+        
         <a href="${pageContext.request.contextPath}/course/average-scores" class="nav-card">
             <h3>📊 课程平均成绩</h3>
             <p>查看各课程平均成绩统计和分析</p>

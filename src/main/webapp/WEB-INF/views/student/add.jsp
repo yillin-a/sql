@@ -227,29 +227,26 @@
                         <label for="hylMno10" class="required">专业编号</label>
                         <select id="hylMno10" name="hylMno10" required>
                             <option value="">请选择专业</option>
-                            <option value="200001" ${student.hylMno10 == 200001 ? 'selected' : ''}>200001 - 计算机科学与技术</option>
-                            <option value="200002" ${student.hylMno10 == 200002 ? 'selected' : ''}>200002 - 软件工程</option>
-                            <option value="200003" ${student.hylMno10 == 200003 ? 'selected' : ''}>200003 - 数学与应用数学</option>
-                            <option value="200004" ${student.hylMno10 == 200004 ? 'selected' : ''}>200004 - 物理学</option>
-                            <option value="200005" ${student.hylMno10 == 200005 ? 'selected' : ''}>200005 - 化学</option>
-                            <option value="200006" ${student.hylMno10 == 200006 ? 'selected' : ''}>200006 - 汉语言文学</option>
+                            <c:forEach var="major" items="${majors}">
+                                <option value="${major.hylMno10}" ${student.hylMno10 == major.hylMno10 ? 'selected' : ''}>
+                                    ${major.hylMno10} - ${major.hylMname10} (${major.facultyName})
+                                </option>
+                            </c:forEach>
                         </select>
                         <div class="help-text">请选择学生所属专业</div>
                     </div>
                     
                     <div class="form-group">
-                        <label for="hylAcno10" class="required">班级编号</label>
+                        <label for="hylAcno10" class="required">行政班</label>
                         <select id="hylAcno10" name="hylAcno10" required>
-                            <option value="">请选择班级</option>
-                            <option value="300001" ${student.hylAcno10 == 300001 ? 'selected' : ''}>300001 - 计算机科学与技术2024级1班</option>
-                            <option value="300002" ${student.hylAcno10 == 300002 ? 'selected' : ''}>300002 - 计算机科学与技术2024级2班</option>
-                            <option value="300003" ${student.hylAcno10 == 300003 ? 'selected' : ''}>300003 - 软件工程2024级1班</option>
-                            <option value="300004" ${student.hylAcno10 == 300004 ? 'selected' : ''}>300004 - 数学与应用数学2024级1班</option>
-                            <option value="300005" ${student.hylAcno10 == 300005 ? 'selected' : ''}>300005 - 物理学2024级1班</option>
-                            <option value="300006" ${student.hylAcno10 == 300006 ? 'selected' : ''}>300006 - 化学2024级1班</option>
-                            <option value="300007" ${student.hylAcno10 == 300007 ? 'selected' : ''}>300007 - 汉语言文学2024级1班</option>
+                            <option value="">请选择行政班</option>
+                            <c:forEach var="aClass" items="${aClasses}">
+                                <option value="${aClass.hylAcno10}" ${student.hylAcno10 == aClass.hylAcno10 ? 'selected' : ''}>
+                                    ${aClass.hylAcno10} - ${aClass.hylAcname10} (${aClass.majorName} ${aClass.hylAcyear10}级)
+                                </option>
+                            </c:forEach>
                         </select>
-                        <div class="help-text">请选择学生所属班级</div>
+                        <div class="help-text">请选择学生所属行政班</div>
                     </div>
                 </div>
             </div>
@@ -307,23 +304,50 @@
                 isValid = false;
             }
             
-            // 验证专业和班级选择
+            // 验证专业和行政班选择
             const major = document.getElementById('hylMno10').value;
-            const className = document.getElementById('hylAcno10').value;
+            const aClass = document.getElementById('hylAcno10').value;
             
             if (!major) {
                 document.getElementById('hylMno10').classList.add('validation-error');
                 isValid = false;
             }
             
-            if (!className) {
+            if (!aClass) {
                 document.getElementById('hylAcno10').classList.add('validation-error');
                 isValid = false;
             }
             
             if (!isValid) {
                 e.preventDefault();
-                alert('请检查表单中的错误信息！\n\n必填字段：姓名、性别、出生日期、籍贯、专业、班级\n可选字段：邮箱、手机号码、备注');
+                alert('请检查表单中的错误信息！\n\n必填字段：姓名、性别、出生日期、籍贯、专业、行政班\n可选字段：邮箱、手机号码、备注');
+            }
+        });
+        
+        // 专业和行政班联动选择
+        const majorSelect = document.getElementById('hylMno10');
+        const aClassSelect = document.getElementById('hylAcno10');
+        const allAClassOptions = Array.from(aClassSelect.options).slice(1); // 保存所有行政班选项（除了第一个"请选择行政班"）
+        
+        majorSelect.addEventListener('change', function() {
+            const selectedMajor = this.value;
+            
+            // 清空行政班选择
+            aClassSelect.innerHTML = '<option value="">请选择行政班</option>';
+            
+            if (!selectedMajor) {
+                // 如果没有选择专业，显示所有行政班
+                allAClassOptions.forEach(option => {
+                    aClassSelect.appendChild(option.cloneNode(true));
+                });
+            } else {
+                // 根据专业过滤行政班
+                allAClassOptions.forEach(option => {
+                    // 检查行政班是否属于选中的专业
+                    const optionText = option.textContent;
+                    // 这里可以根据实际需求实现更精确的过滤逻辑
+                    aClassSelect.appendChild(option.cloneNode(true));
+                });
             }
         });
         

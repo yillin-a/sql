@@ -51,11 +51,33 @@ public class StudentService {
     }
     
     /**
+     * 根据行政班编号查询学生
+     */
+    public List<Student> getStudentsByClassId(Integer classId) {
+        try {
+            return studentDAO.findByClassId(classId);
+        } catch (SQLException e) {
+            throw new RuntimeException("根据行政班查询学生失败", e);
+        }
+    }
+    
+    /**
      * 添加学生
      */
     public boolean addStudent(Student student) {
         try {
             return studentDAO.addStudent(student);
+        } catch (SQLException e) {
+            throw new RuntimeException("添加学生失败", e);
+        }
+    }
+    
+    /**
+     * 添加学生并返回完整的学生信息
+     */
+    public Student addStudentAndReturn(Student student) {
+        try {
+            return studentDAO.addStudentAndReturn(student);
         } catch (SQLException e) {
             throw new RuntimeException("添加学生失败", e);
         }

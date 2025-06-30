@@ -80,11 +80,28 @@
             color: #dc3545;
             font-weight: bold;
         }
+        .success-message {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            border-left: 4px solid #28a745;
+            white-space: pre-line;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h2>👤 学生详情</h2>
+        
+        <c:if test="${not empty sessionScope.successMessage}">
+            <div class="success-message">
+                ✅ ${sessionScope.successMessage}
+            </div>
+            <c:remove var="successMessage" scope="session"/>
+        </c:if>
         
         <div class="info-grid">
             <div class="info-item">

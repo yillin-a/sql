@@ -9,7 +9,9 @@ import java.util.List;
 import java.util.Map;
 
 import org.example.demo111.model.Student;
+import org.example.demo111.service.AClassService;
 import org.example.demo111.service.EnrollmentService;
+import org.example.demo111.service.MajorService;
 import org.example.demo111.service.StudentService;
 
 import jakarta.servlet.ServletException;
@@ -25,11 +27,15 @@ import jakarta.servlet.http.HttpServletResponse;
 public class StudentController extends HttpServlet {
     private final StudentService studentService;
     private final EnrollmentService enrollmentService;
+    private final MajorService majorService;
+    private final AClassService aClassService;
     private final SimpleDateFormat dateFormat;
     
     public StudentController() {
         this.studentService = new StudentService();
         this.enrollmentService = new EnrollmentService();
+        this.majorService = new MajorService();
+        this.aClassService = new AClassService();
         this.dateFormat = new SimpleDateFormat("yyyy-MM-dd");
     }
     
@@ -40,7 +46,20 @@ public class StudentController extends HttpServlet {
         
         try {
             if (pathInfo == null || "/".equals(pathInfo) || "/list".equals(pathInfo)) {
-                listStudents(request, response);
+                // 检查是否有筛选参数，如果有则调用搜索方法
+                String classParam = request.getParameter("class");
+                String nameParam = request.getParameter("name");
+                String statusParam = request.getParameter("status");
+                String genderParam = request.getParameter("gender");
+                
+                if ((classParam != null && !classParam.trim().isEmpty()) ||
+                    (nameParam != null && !nameParam.trim().isEmpty()) ||
+                    (statusParam != null && !statusParam.trim().isEmpty()) ||
+                    (genderParam != null && !genderParam.trim().isEmpty())) {
+                    searchStudents(request, response);
+                } else {
+                    listStudents(request, response);
+                }
             } else if ("/add".equals(pathInfo)) {
                 showAddStudentForm(request, response);
             } else if ("/view".equals(pathInfo)) {
@@ -92,6 +111,15 @@ public class StudentController extends HttpServlet {
     private void listStudents(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
         List<Student> students = studentService.getAllStudents();
+        
+        // 获取所有行政班列表用于筛选
+        try {
+            List<org.example.demo111.model.AClass> aClasses = aClassService.getAllAClasses();
+            request.setAttribute("aClasses", aClasses);
+        } catch (Exception e) {
+            System.err.println("获取行政班列表失败: " + e.getMessage());
+        }
+        
         request.setAttribute("students", students);
         request.getRequestDispatcher("/WEB-INF/views/student/list.jsp").forward(request, response);
     }
@@ -101,7 +129,22 @@ public class StudentController extends HttpServlet {
      */
     private void showAddStudentForm(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
-        request.getRequestDispatcher("/WEB-INF/views/student/add.jsp").forward(request, response);
+        try {
+            // 获取所有专业列表
+            List<org.example.demo111.model.Major> majors = majorService.getAllMajors();
+            
+            // 获取所有行政班列表
+            List<org.example.demo111.model.AClass> aClasses = aClassService.getAllAClasses();
+            
+            // 将数据传递给JSP页面
+            request.setAttribute("majors", majors);
+            request.setAttribute("aClasses", aClasses);
+            
+            request.getRequestDispatcher("/WEB-INF/views/student/add.jsp").forward(request, response);
+        } catch (Exception e) {
+            request.setAttribute("error", "获取专业或行政班列表失败: " + e.getMessage());
+            request.getRequestDispatcher("/WEB-INF/views/error.jsp").forward(request, response);
+        }
     }
     
     /**
@@ -126,16 +169,29 @@ public class StudentController extends HttpServlet {
      */
     private void editStudent(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
-        Integer studentId = Integer.parseInt(request.getParameter("id"));
-        Student student = studentService.getStudentById(studentId);
-        
-        if (student == null) {
-            response.sendError(HttpServletResponse.SC_NOT_FOUND, "学生不存在");
-            return;
+        try {
+            Integer studentId = Integer.parseInt(request.getParameter("id"));
+            Student student = studentService.getStudentById(studentId);
+            
+            if (student == null) {
+                response.sendError(HttpServletResponse.SC_NOT_FOUND, "学生不存在");
+                return;
+            }
+            
+            // 获取所有专业列表
+            List<org.example.demo111.model.Major> majors = majorService.getAllMajors();
+            
+            // 获取所有行政班列表
+            List<org.example.demo111.model.AClass> aClasses = aClassService.getAllAClasses();
+            
+            request.setAttribute("student", student);
+            request.setAttribute("majors", majors);
+            request.setAttribute("aClasses", aClasses);
+            request.getRequestDispatcher("/WEB-INF/views/student/edit.jsp").forward(request, response);
+        } catch (Exception e) {
+            request.setAttribute("error", "获取学生信息或相关数据失败: " + e.getMessage());
+            request.getRequestDispatcher("/WEB-INF/views/error.jsp").forward(request, response);
         }
-        
-        request.setAttribute("student", student);
-        request.getRequestDispatcher("/WEB-INF/views/student/edit.jsp").forward(request, response);
     }
     
     /**
@@ -146,10 +202,19 @@ public class StudentController extends HttpServlet {
         String name = request.getParameter("name");
         String status = request.getParameter("status");
         String gender = request.getParameter("gender");
+        String classIdStr = request.getParameter("class");
         
         List<Student> students;
         
-        if (name != null && !name.trim().isEmpty()) {
+        // 优先处理按行政班筛选
+        if (classIdStr != null && !classIdStr.trim().isEmpty()) {
+            try {
+                Integer classId = Integer.parseInt(classIdStr);
+                students = studentService.getStudentsByClassId(classId);
+            } catch (NumberFormatException e) {
+                students = studentService.getAllStudents();
+            }
+        } else if (name != null && !name.trim().isEmpty()) {
             students = studentService.searchStudentsByName(name);
         } else {
             students = studentService.getAllStudents();
@@ -169,10 +234,19 @@ public class StudentController extends HttpServlet {
                 .collect(java.util.stream.Collectors.toList());
         }
         
+        // 获取所有行政班列表用于筛选
+        try {
+            List<org.example.demo111.model.AClass> aClasses = aClassService.getAllAClasses();
+            request.setAttribute("aClasses", aClasses);
+        } catch (Exception e) {
+            System.err.println("获取行政班列表失败: " + e.getMessage());
+        }
+        
         request.setAttribute("students", students);
         request.setAttribute("searchName", name);
         request.setAttribute("searchStatus", status);
         request.setAttribute("searchGender", gender);
+        request.setAttribute("searchClass", classIdStr);
         request.getRequestDispatcher("/WEB-INF/views/student/list.jsp").forward(request, response);
     }
     
@@ -244,34 +318,65 @@ public class StudentController extends HttpServlet {
             
             if (!studentService.validateStudent(student)) {
                 request.setAttribute("error", "学生信息验证失败，请检查输入数据");
+                request.setAttribute("student", student);
+                
+                // 重新获取专业和行政班列表
+                List<org.example.demo111.model.Major> majors = majorService.getAllMajors();
+                List<org.example.demo111.model.AClass> aClasses = aClassService.getAllAClasses();
+                request.setAttribute("majors", majors);
+                request.setAttribute("aClasses", aClasses);
+                
                 request.getRequestDispatcher("/WEB-INF/views/student/add.jsp").forward(request, response);
                 return;
             }
             
-            boolean success = studentService.addStudent(student);
+            Student addedStudent = studentService.addStudentAndReturn(student);
             
-            if (success) {
-                // 添加成功提示，包含触发器信息
+            if (addedStudent != null) {
+                // 添加成功，获取完整的学生信息（包括自动生成的学号）
                 String message = String.format("学生 %s 添加成功！学号：%d\n" +
                     "系统已自动为该学生创建登录账户：\n" +
                     "用户名：%d\n" +
-                    "默认密码：Student@123\n" +
+                    "默认密码：%d\n" +
                     "请通知学生及时修改密码。", 
-                    student.getHylSname10(), 
-                    student.getHylSno10(),
-                    student.getHylSno10());
+                    addedStudent.getHylSname10(), 
+                    addedStudent.getHylSno10(),
+                    addedStudent.getHylSno10(), 
+                    addedStudent.getHylSno10()
+                );
                 
-                request.setAttribute("message", message);
-                request.setAttribute("newStudent", student);
+                // 重定向到学生详情页面，显示新添加的学生信息
+                request.getSession().setAttribute("successMessage", message);
+                response.sendRedirect(request.getContextPath() + "/student/view?id=" + addedStudent.getHylSno10());
+                return;
             } else {
                 request.setAttribute("error", "添加学生失败，请重试");
+                
+                // 重新获取专业和行政班列表
+                List<org.example.demo111.model.Major> majors = majorService.getAllMajors();
+                List<org.example.demo111.model.AClass> aClasses = aClassService.getAllAClasses();
+                request.setAttribute("majors", majors);
+                request.setAttribute("aClasses", aClasses);
+                request.setAttribute("student", student);
+                
+                request.getRequestDispatcher("/WEB-INF/views/student/add.jsp").forward(request, response);
+                return;
             }
-            
-            // 重新加载学生列表
-            listStudents(request, response);
             
         } catch (Exception e) {
             request.setAttribute("error", "添加学生时发生错误: " + e.getMessage());
+            
+            // 重新获取专业和行政班列表
+            try {
+                List<org.example.demo111.model.Major> majors = majorService.getAllMajors();
+                List<org.example.demo111.model.AClass> aClasses = aClassService.getAllAClasses();
+                request.setAttribute("majors", majors);
+                request.setAttribute("aClasses", aClasses);
+            } catch (Exception ex) {
+                // 如果获取列表也失败，记录错误但不影响主要错误信息的显示
+                System.err.println("获取专业或行政班列表失败: " + ex.getMessage());
+            }
+            
             request.getRequestDispatcher("/WEB-INF/views/student/add.jsp").forward(request, response);
         }
     }
@@ -286,6 +391,17 @@ public class StudentController extends HttpServlet {
         if (!studentService.validateStudent(student)) {
             request.setAttribute("error", "学生信息验证失败");
             request.setAttribute("student", student);
+            
+            // 重新获取专业和行政班列表
+            try {
+                List<org.example.demo111.model.Major> majors = majorService.getAllMajors();
+                List<org.example.demo111.model.AClass> aClasses = aClassService.getAllAClasses();
+                request.setAttribute("majors", majors);
+                request.setAttribute("aClasses", aClasses);
+            } catch (Exception ex) {
+                System.err.println("获取专业或行政班列表失败: " + ex.getMessage());
+            }
+            
             request.getRequestDispatcher("/WEB-INF/views/student/edit.jsp").forward(request, response);
             return;
         }
@@ -296,6 +412,17 @@ public class StudentController extends HttpServlet {
         } else {
             request.setAttribute("error", "更新学生信息失败");
             request.setAttribute("student", student);
+            
+            // 重新获取专业和行政班列表
+            try {
+                List<org.example.demo111.model.Major> majors = majorService.getAllMajors();
+                List<org.example.demo111.model.AClass> aClasses = aClassService.getAllAClasses();
+                request.setAttribute("majors", majors);
+                request.setAttribute("aClasses", aClasses);
+            } catch (Exception ex) {
+                System.err.println("获取专业或行政班列表失败: " + ex.getMessage());
+            }
+            
             request.getRequestDispatcher("/WEB-INF/views/student/edit.jsp").forward(request, response);
         }
     }

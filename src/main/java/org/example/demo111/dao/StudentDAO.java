@@ -4,6 +4,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -131,6 +132,59 @@ public class StudentDAO {
             pstmt.setInt(9, student.getHylAcno10());
             
             return pstmt.executeUpdate() > 0;
+        }
+    }
+    
+    /**
+     * 添加学生并返回完整的学生信息
+     */
+    public Student addStudentAndReturn(Student student) throws SQLException {
+        String sql = "INSERT INTO huyl_student10 (hyl_sage10, hyl_sname10, hyl_sbirth10, hyl_splace10, " +
+                     "hyl_ssex10, hyl_semail10, hyl_sphone10, hyl_mno10, hyl_acno10) " +
+                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        
+        try (Connection conn = DatabaseUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            
+            pstmt.setInt(1, student.getHylSage10());
+            pstmt.setString(2, student.getHylSname10());
+            
+            if (student.getHylSbirth10() != null) {
+                pstmt.setDate(3, new java.sql.Date(student.getHylSbirth10().getTime()));
+            } else {
+                pstmt.setNull(3, java.sql.Types.DATE);
+            }
+            
+            pstmt.setString(4, student.getHylSplace10());
+            pstmt.setString(5, student.getHylSsex10());
+            
+            if (student.getHylSemail10() != null && !student.getHylSemail10().trim().isEmpty()) {
+                pstmt.setString(6, student.getHylSemail10());
+            } else {
+                pstmt.setNull(6, java.sql.Types.VARCHAR);
+            }
+            
+            if (student.getHylSphone10() != null && !student.getHylSphone10().trim().isEmpty()) {
+                pstmt.setString(7, student.getHylSphone10());
+            } else {
+                pstmt.setNull(7, java.sql.Types.VARCHAR);
+            }
+            
+            pstmt.setInt(8, student.getHylMno10());
+            pstmt.setInt(9, student.getHylAcno10());
+            
+            int affectedRows = pstmt.executeUpdate();
+            if (affectedRows > 0) {
+                // 获取自动生成的学号
+                try (ResultSet generatedKeys = pstmt.getGeneratedKeys()) {
+                    if (generatedKeys.next()) {
+                        int studentId = generatedKeys.getInt(1);
+                        // 返回完整的学生信息
+                        return findByStudentId(studentId);
+                    }
+                }
+            }
+            return null;
         }
     }
     
@@ -1075,5 +1129,32 @@ public class StudentDAO {
             int updatedRows = pstmt.executeUpdate();
             System.out.println("更新了 " + updatedRows + " 个学生的GPA");
         }
+    }
+    
+    /**
+     * 根据行政班编号查询学生
+     */
+    public List<Student> findByClassId(Integer classId) throws SQLException {
+        List<Student> students = new ArrayList<>();
+        String sql = "SELECT s.*, m.hyl_mname10 as major_name, ac.hyl_acname10 as class_name " +
+                     "FROM huyl_student10 s " +
+                     "LEFT JOIN huyl_major10 m ON s.hyl_mno10 = m.hyl_mno10 " +
+                     "LEFT JOIN huyl_aclass10 ac ON s.hyl_acno10 = ac.hyl_acno10 " +
+                     "WHERE s.hyl_acno10 = ? " +
+                     "ORDER BY s.hyl_sno10";
+        
+        try (Connection conn = DatabaseUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
+            pstmt.setInt(1, classId);
+            ResultSet rs = pstmt.executeQuery();
+            
+            while (rs.next()) {
+                Student student = mapResultSetToStudent(rs);
+                students.add(student);
+            }
+        }
+        
+        return students;
     }
 } 

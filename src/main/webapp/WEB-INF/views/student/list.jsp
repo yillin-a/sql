@@ -334,7 +334,7 @@
                 <div class="new-student-info">
                     <strong>学生姓名：</strong>${newStudent.hylSname10}<br>
                     <strong>学号：</strong>${newStudent.hylSno10}<br>
-                    <strong>登录账户：</strong>用户名=${newStudent.hylSno10}，密码=Student@123<br>
+                    <strong>登录账户：</strong>用户名=${newStudent.hylSno10}，密码=${newStudent.hylSno10}<br>
                     <strong>请通知学生及时修改默认密码！</strong>
                 </div>
             </div>
@@ -407,6 +407,15 @@
                         <option value="">全部性别</option>
                         <option value="男" ${searchGender == '男' ? 'selected' : ''}>男</option>
                         <option value="女" ${searchGender == '女' ? 'selected' : ''}>女</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="class">行政班筛选</label>
+                    <select id="class" name="class">
+                        <option value="">全部班级</option>
+                        <c:forEach var="aClass" items="${aClasses}">
+                            <option value="${aClass.hylAcno10}" ${searchClass == aClass.hylAcno10.toString() ? 'selected' : ''}>${aClass.hylAcname10}</option>
+                        </c:forEach>
                     </select>
                 </div>
                 <div class="form-group">
