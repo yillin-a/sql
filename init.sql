@@ -37,22 +37,6 @@ DROP TRIGGER IF EXISTS tr_cascade_delete_student ON huyl_student10;
 DROP TRIGGER IF EXISTS tr_update_course_rank ON huyl_enroll10;
 DROP TRIGGER IF EXISTS tr_calculate_total_credits_for_term ON huyl_enroll10;
 
---DROP FUNCTION IF EXISTS check_student_major_consistency() CASCADE;
--- DROP FUNCTION IF EXISTS update_student_credits CASCADE;
--- DROP FUNCTION IF EXISTS update_tclass_student_count CASCADE;
--- DROP FUNCTION IF EXISTS update_student_status_on_graduation CASCADE;
--- DROP FUNCTION IF EXISTS check_course_schedule_conflict CASCADE;
--- DROP FUNCTION IF EXISTS delete_teacher_related_classes CASCADE;
--- DROP FUNCTION IF EXISTS update_course_avg_score CASCADE;
--- DROP FUNCTION IF EXISTS update_course_enrollment_count CASCADE;
--- DROP FUNCTION IF EXISTS update_student_gpa CASCADE;
--- DROP FUNCTION IF EXISTS update_single_student_major_rank CASCADE;
--- DROP FUNCTION IF EXISTS update_major_all_students_rank CASCADE;
--- DROP FUNCTION IF EXISTS recalculate_all_major_ranks CASCADE;
--- DROP FUNCTION IF EXISTS update_course_rank CASCADE;
--- DROP FUNCTION IF EXISTS calculate_total_credits_for_term CASCADE;
--- DROP FUNCTION IF EXISTS generate_student_password CASCADE;
--- DROP FUNCTION IF EXISTS cascade_delete_student CASCADE;
 
 -- 1.3 删除表
 DROP TABLE IF EXISTS huyl_enroll10 CASCADE;
@@ -525,22 +509,8 @@ WHERE t.hyl_tstatus10 = '在职' AND e.hyl_escore10 IS NOT NULL -- 仅限在职�
 ORDER BY teacher_name, year, term, score DESC;
 
 
--- 不推荐直接在视图中使用参数占位符（如 :search_term）
--- 对于以下功能，建议在应用层直接构建带参数的SQL查询，
--- 或者如果需要封装在数据库中，可以考虑创建"返回表的函数"（Table-Valued Function）。
--- 直接创建视图会导致语法错误或不符合视图的静态定义特性。
-
--- 废弃视图示例 (因包含参数化查询)：
--- v_student_name_search
--- v_course_name_search
--- v_teacher_name_search
--- v_student_score_search
--- v_student_search_with_weight
--- v_course_auto_complete
--- v_student_auto_complete
-
 -- =============================================
--- 视图使用示例查询 (保持不变，这些是在应用中查询视图的例子)
+-- 视图使用示例查询
 -- =============================================
 
 -- 示例1: 查询特定学生的所有成绩
@@ -977,30 +947,18 @@ END;
 $$ LANGUAGE plpgsql;
 
 
--- 2.11 自动生成学生密码函数 (安全性警告！)
--- 逻辑：根据学生学号自动生成一个简单的明文密码。
--- !!! 安全警告 !!!
--- 在生产环境中，绝不能以明文形式存储或生成密码。
--- 应使用强大的单向哈希函数 (如 bcrypt, scrypt, Argon2) 对密码进行哈希处理并加盐 (salting)，
--- 并在认证时比较哈希值。此函数仅为演示目的保留。
+-- 2.11 自动生成学生密码函数
 CREATE OR REPLACE FUNCTION generate_student_password()
     RETURNS TRIGGER AS $$
 BEGIN
-    NEW.hyl_upassword10 := CONCAT('zjut', NEW.hyl_uno10); -- 假设 huyl_uno10 是用户表的ID
-    -- 注意：这里应使用用户的唯一ID，例如用户表的主键 hyl_uno10
-    -- 如果 hyl_sno10 (学生学号) 与 hyl_uno10 (用户ID) 存在一对一关系，
-    -- 且在插入用户时能获取到 hyl_sno10，也可以考虑 CONCAT('stu', NEW.hyl_sno10)。
-    -- 但根据表定义，hyl_uno10是主键。
+    --NEW.hyl_upassword10 := CONCAT('zjut', NEW.hyl_uno10); -- 假设 huyl_uno10 是用户表的ID
+    NEW.hyl_upassword10 :=  NEW.hyl_uno10;
 RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
 -- 2.12 级联删除学生相关记录函数 (已优化：若已设置外键 CASCADE，此函数和触发器可移除)
--- !!! 优化说明 !!!
--- 你的表定义中 huyl_enroll10 依赖 huyl_student10 的外键已经设置了 ON DELETE CASCADE。
--- 这意味着当学生记录从 huyl_student10 表中被删除时，数据库会自动级联删除其在 huyl_enroll10 表中的所有选课记录。
--- 因此，这个函数及其触发器是多余的，且数据库自带的级联删除效率更高。
--- 我会将其保留，但标记为可移除/冗余，因为 ON DELETE CASCADE 已经覆盖了。
+
 CREATE OR REPLACE FUNCTION cascade_delete_student()
     RETURNS TRIGGER AS $$
 BEGIN
@@ -1086,15 +1044,8 @@ CREATE TRIGGER tr_update_student_major_rank
     EXECUTE PROCEDURE update_major_all_students_rank();
 
 
-
--- 3.11 触发器：级联删除学生相关记录 (已移除，由外键ON DELETE CASCADE处理)
--- 由于 huyl_enroll10 表的外键 FK_enroll10_sno10 已经设置了 ON DELETE CASCADE，
--- 当删除 huyl_student10 中的记录时，相关的 huyl_enroll10 记录会自动被数据库删除，
--- 无需额外的触发器。因此，此触发器被移除以避免冗余和潜在的性能开销。
--- DROP TRIGGER IF EXISTS tr_cascade_delete_student ON huyl_student10;
-
 ----------------------------------------------------------------------------------------------------------------
--- ================== 1. 辅助视图 (已更新) ==================
+-- ================== 1. 辅助视图==================
 
 ---
 --- 辅助视图: v_enrollment_calculated_gpa
@@ -1371,9 +1322,7 @@ EXECUTE PROCEDURE delete_teacher_user();
 ---
 --- 函数: huyl_insert_student_user
 --- 功能：在学生表插入新记录后，自动在用户表创建对应的学生用户。
---- 注意：密码加密方式 gs_encrypt_aes128 依赖 openGauss 的扩展函数。
---- 严重安全警告：在生产环境中，请勿使用简单连接字符串作为密钥，并考虑更强的哈希算法（如 bcrypt）。
----
+
 CREATE OR REPLACE FUNCTION huyl_insert_student_user()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -1387,9 +1336,8 @@ $$ LANGUAGE plpgsql;
 ---
 --- 函数: huyl_insert_teacher_user
 --- 功能：在教师表插入新记录后，自动在用户表创建对应的教师用户。
---- 安全警告同上。
----
---SET search_path TO "$user", public, pg_catalog; -- 确保包含 public 和 pg_catalog
+
+
 CREATE OR REPLACE FUNCTION huyl_insert_teacher_user()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -1463,7 +1411,7 @@ $$ LANGUAGE plpgsql;
 ---
 --- 函数: huyl_unenroll_students_on_schedule_change
 --- 功能：当默认排课信息删除或更新时（行政班或教学班关联发生变化），自动为受影响的学生退选课程。
---- 依赖：假设存在 huyl_default_scheduling10 表。
+---
 ---
 CREATE OR REPLACE FUNCTION huyl_unenroll_students_on_schedule_change()
 RETURNS TRIGGER AS $$
@@ -1819,11 +1767,6 @@ CREATE TRIGGER tr_generate_user_password -- 命名更通用，因为是针对用
     FOR EACH ROW EXECUTE PROCEDURE generate_student_password();
 
 
--- 3.11 触发器：级联删除学生相关记录 (已移除，由外键ON DELETE CASCADE处理)
--- 由于 huyl_enroll10 表的外键 FK_enroll10_sno10 已经设置了 ON DELETE CASCADE，
--- 当删除 huyl_student10 中的记录时，相关的 huyl_enroll10 记录会自动被数据库删除，
--- 无需额外的触发器。因此，此触发器被移除以避免冗余和潜在的性能开销。
--- DROP TRIGGER IF EXISTS tr_cascade_delete_student ON huyl_student10;
 
 ----------------------------------------------------------------------------------------------------------------
 
