@@ -51,7 +51,7 @@ DROP TABLE IF EXISTS huyl_user10 CASCADE;
 DROP TABLE IF EXISTS huyl_venue10 CASCADE;
 DROP TABLE IF EXISTS huyl_cultivate10 CASCADE;
 
--- 1.4 删除序列
+-- 1.3 删除序列
 DROP SEQUENCE IF EXISTS user_seq CASCADE;
 DROP SEQUENCE IF EXISTS major_seq CASCADE;
 DROP SEQUENCE IF EXISTS administrative_class_seq CASCADE;
@@ -62,7 +62,7 @@ DROP SEQUENCE IF EXISTS teacher_seq CASCADE;
 DROP SEQUENCE IF EXISTS faculty_seq CASCADE;
 DROP SEQUENCE IF EXISTS cultivate_seq CASCADE;
 
--- ================== 2. 创建序列、表、索引、视图、函数、触发器 ==================
+-- ================== 创建序列、表、索引、视图、函数、触发器 ==================
 --用户
 CREATE SEQUENCE user_seq START WITH 100001 INCREMENT BY 1;
 --专业
@@ -257,11 +257,13 @@ CREATE TABLE huyl_cultivate10
 );
 
 -- 创建索引以提高查询性能
--- ================== 优化并兼容 openGauss 的索引创建 ==================
+-- ================== 索引创建 ==================
 
 -- 基础索引 (针对外键和常用单列查询/排序)
 -- openGauss 通常会自动为PRIMARY KEY和UNIQUE约束创建索引，
--- 并且在外键创建时也会考虑索引。但为了明确性和性能考虑，可以显式创建。
+
+
+
 
 -- 学生相关
 CREATE INDEX idx_student_acno10 ON huyl_student10(hyl_acno10); -- 外键索引
@@ -278,8 +280,6 @@ CREATE INDEX idx_tclass_year_term_combo ON huyl_tclass10(hyl_tcyear10 DESC, hyl_
 CREATE INDEX idx_tclass_teacher_schedule ON huyl_tclass10(hyl_tno10, hyl_tcyear10, hyl_tcterm10);
 
 -- 选课相关
--- huyl_enroll10 的 PRIMARY KEY (hyl_sno10, hyl_tcno10) 会自动创建复合索引
--- 所以单独的 hyl_sno10 和 hyl_tcno10 索引通常是冗余的，这里不显式创建。
 CREATE INDEX idx_enroll_escore10 ON huyl_enroll10(hyl_escore10); -- 成绩过滤/排序常用
 CREATE INDEX idx_enroll_egpa10 ON huyl_enroll10(hyl_egpa10);     -- GPA查询/排序常用
 
@@ -307,7 +307,7 @@ CREATE INDEX idx_cultivate_mno10 ON huyl_cultivate10(hyl_mno10);
 CREATE INDEX idx_cultivate_cno10 ON huyl_cultivate10(hyl_cno10);
 
 
--- 针对特定查询和过滤条件的优化（过滤索引 - openGauss 语法：条件需要用括号括起来）
+-- 针对特定查询和过滤条件的优化（过滤索引）
 CREATE INDEX idx_student_status_active ON huyl_student10(hyl_sstatus10) WHERE (hyl_sstatus10 = '在读');
 CREATE INDEX idx_teacher_status_active ON huyl_teacher10(hyl_tstatus10) WHERE (hyl_tstatus10 = '在职');
 CREATE INDEX idx_enroll_status_normal ON huyl_enroll10(hyl_status10) WHERE (hyl_status10 = '正常');
@@ -317,7 +317,7 @@ CREATE INDEX idx_tclass_recent_year_term ON huyl_tclass10(hyl_tcyear10, hyl_tcte
     WHERE (hyl_tcyear10 >= EXTRACT(YEAR FROM CURRENT_DATE) - 1);
 
 
--- 其他通用但可能在特定查询模式下有用的复合索引
+-- 在特定查询模式下有用的复合索引
 -- 用于按教学班计算成绩的聚合查询
 CREATE INDEX idx_enroll_tc_score ON huyl_enroll10(hyl_tcno10, hyl_escore10);
 
@@ -345,7 +345,7 @@ FROM huyl_enroll10 e
     JOIN huyl_student10 s ON e.hyl_sno10 = s.hyl_sno10
     JOIN huyl_tclass10 tc ON tc.hyl_tcno10 = e.hyl_tcno10
     JOIN huyl_course10 c ON c.hyl_cno10 = tc.hyl_cno10
-    LEFT JOIN huyl_teacher10 t ON t.hyl_tno10 = tc.hyl_tno10; -- 教师可能为空，用LEFT JOIN更合理
+    LEFT JOIN huyl_teacher10 t ON t.hyl_tno10 = tc.hyl_tno10; -- 教师可能为空，用LEFT JOIN较为合理
 
 -- 1.2 学生每学年成绩统计视图
 -- 功能：统计每个学生每学年的平均成绩
@@ -510,7 +510,7 @@ ORDER BY teacher_name, year, term, score DESC;
 
 
 -- =============================================
--- 视图使用示例查询
+-- 一些示例查询
 -- =============================================
 
 -- 示例1: 查询特定学生的所有成绩
@@ -541,7 +541,7 @@ ORDER BY teacher_name, year, term, score DESC;
 
 -- ================== 2. 创建函数 ==================
 
--- 2.1 确保学生的专业与行政班专业一致的函数
+
 CREATE OR REPLACE FUNCTION check_student_major_consistency()
     RETURNS TRIGGER AS $$
 BEGIN
@@ -666,8 +666,8 @@ $$ LANGUAGE plpgsql;
 
 -- 2.4 自动更新学生的状态（如"毕业"）函数
 -- 逻辑：当学生已修学分达到毕业要求，且所有课程都已及格时，自动将学生的状态设置为"毕业"。
--- 修正：修正了 JOIN 条件，使其正确关联 huyl_course10 表获取学分。
--- 注意：此逻辑只检查已记录成绩的课程是否及格并累计学分，更严谨的毕业判断可能需要确保所有培养方案中的必修课都已及格。
+-- JOIN 条件，使其正确关联 huyl_course10 表获取学分。
+-- 改进：此方法只检查已记录成绩的课程是否及格并累计学分，更严谨的毕业判断可能需要确保所有培养方案中的必修课都已及格。
 CREATE OR REPLACE FUNCTION update_student_status_on_graduation()
     RETURNS TRIGGER AS $$
 DECLARE
@@ -764,7 +764,6 @@ $$ LANGUAGE plpgsql;
 -- 2.6 自动删除离职教师相关的教学班函数
 -- 逻辑：当教师状态更新为"离职"时，自动删除该教师所有相关的教学班记录。
 -- 注意：删除教学班会导致级联删除其下的选课记录和上课时间地点记录（由外键 ON DELETE CASCADE 确保）。
--- 这是一个强耦合的业务逻辑，实际使用需谨慎评估影响。
 CREATE OR REPLACE FUNCTION delete_teacher_related_classes()
     RETURNS TRIGGER AS $$
 BEGIN
@@ -777,7 +776,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 
--- 2.7 自动更新课程平均成绩函数（修复版本）
+-- 2.7 自动更新课程平均成绩函数
 -- 逻辑：当选课成绩插入、更新或删除时，自动计算并更新该课程的平均分。
 DROP FUNCTION IF EXISTS update_course_avg_score() CASCADE;
 CREATE OR REPLACE FUNCTION update_course_avg_score()
@@ -832,7 +831,7 @@ $$ LANGUAGE plpgsql;
 -- 2.8 自动计算学生的 GPA 函数
 -- 逻辑：当学生的选课记录发生变化（新增、更新、删除）时，自动重新计算该学生的总 GPA。
 -- GPA 计算公式：SUM(课程GPA * 课程学分) / SUM(课程学分)
--- 假设 huyl_egpa10 存储的是该课程的绩点 (如4.0, 3.5等)，hyl_ccredit10是学分。
+-- huyl_egpa10 存储的是该课程的绩点 (如4.0, 3.5等)，hyl_ccredit10是学分。
 CREATE OR REPLACE FUNCTION update_student_gpa()
     RETURNS TRIGGER AS $$
 DECLARE
@@ -1252,16 +1251,17 @@ BEGIN
     INSERT INTO huyl_user10(hyl_uname10, hyl_upassword10, hyl_utype10)
     VALUES (
                CAST(NEW.hyl_sno10 AS VARCHAR), -- 将学号转换为VARCHAR作为用户名
-               (CONCAT('zjut', NEW.hyl_sno10)), -- 使用 gs_encrypt_aes128 加密
+               CAST(NEW.hyl_sno10 AS VARCHAR), -- 将学号转换为VARCHAR作为密码
                'student' -- 用户类型为 student
-           ); -- 初始密码为zjut+学号，秘钥为Houchenyu@2024
+           ); -- 初始密码为学号
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
--- 不加密的写法 CONCAT('zjut', NEW.hyl_sno10)
+
+
 
 -- 触发器：自动添加学生用户
-CREATE TRIGGER tr_insert_student_user -- 修正触发器名称以符合 huyl_ 命名和函数名
+CREATE TRIGGER tr_insert_student_user
     AFTER INSERT ON huyl_student10
     FOR EACH ROW
 EXECUTE PROCEDURE insert_student_user();
@@ -1273,15 +1273,15 @@ BEGIN
     INSERT INTO huyl_user10(hyl_uname10, hyl_upassword10, hyl_utype10)
     VALUES (
                CAST(NEW.hyl_tno10 AS VARCHAR), -- 将工号转换为VARCHAR作为用户名
-               (CONCAT('zjut', NEW.hyl_tno10)), -- 使用 gs_encrypt_aes128 加密
+               CAST(NEW.hyl_tno10 AS VARCHAR),
                'teacher' -- 用户类型为 teacher
-           ); -- 初始密码为zjut+工号，秘钥为Houchenyu@2024
+           ); -- 初始密码为工号
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
 -- 触发器：自动添加教师用户
-CREATE TRIGGER tr_insert_teacher_user -- 修正触发器名称以符合 huyl_ 命名和函数名
+CREATE TRIGGER tr_insert_teacher_user
     AFTER INSERT ON huyl_teacher10
     FOR EACH ROW
 EXECUTE PROCEDURE insert_teacher_user();
@@ -1336,8 +1336,6 @@ $$ LANGUAGE plpgsql;
 ---
 --- 函数: huyl_insert_teacher_user
 --- 功能：在教师表插入新记录后，自动在用户表创建对应的教师用户。
-
-
 CREATE OR REPLACE FUNCTION huyl_insert_teacher_user()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -1350,7 +1348,6 @@ $$ LANGUAGE plpgsql;
 ---
 --- 函数: huyl_delete_student_user
 --- 功能：在学生表删除记录后，自动删除用户表中对应的学生用户。
----
 CREATE OR REPLACE FUNCTION huyl_delete_student_user()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -1363,7 +1360,6 @@ $$ LANGUAGE plpgsql;
 ---
 --- 函数: huyl_delete_teacher_user
 --- 功能：在教师表删除记录后，自动删除用户表中对应的教师用户。
----
 CREATE OR REPLACE FUNCTION huyl_delete_teacher_user()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -1411,8 +1407,6 @@ $$ LANGUAGE plpgsql;
 ---
 --- 函数: huyl_unenroll_students_on_schedule_change
 --- 功能：当默认排课信息删除或更新时（行政班或教学班关联发生变化），自动为受影响的学生退选课程。
----
----
 CREATE OR REPLACE FUNCTION huyl_unenroll_students_on_schedule_change()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -1761,7 +1755,7 @@ CREATE TRIGGER tr_Student_Insert
 EXECUTE PROCEDURE trig_CreateStudentUser();
 
 
--- 3.10 触发器：自动生成用户密码 (安全性警告！)
+-- 3.10 触发器：自动生成用户密码
 CREATE TRIGGER tr_generate_user_password -- 命名更通用，因为是针对用户表
     BEFORE INSERT ON huyl_user10
     FOR EACH ROW EXECUTE PROCEDURE generate_student_password();
